@@ -1,0 +1,13 @@
+{
+  "name": "GymByCollin",
+  "short_name": "GymByCollin",
+  "description": "Calories, workout splits, food, water, sleep and steps — built around your goal.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#060509",
+  "theme_color": "#060509",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
