@@ -12,6 +12,7 @@ Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** o
 - **📸 Food scanner**: snap a photo and AI identifies each food, estimates its weight, and shows the calories and protein. Adjust the grams with a slider
 - **▥ Barcode scanner**: scan any packaged food and pull its nutrition from [Open Food Facts](https://world.openfoodfacts.org)
 - **🏋️ Workout tracker**: log sets and reps with a rest timer. It shows what you lifted last time and automatically detects **personal records** (heaviest weight, rep PRs, estimated 1RM) with progress charts
+- **🧍 Body Scan**: upload a photo (AI estimate) or use tape measurements (U.S. Navy method) to get body fat %, lean mass, skeletal muscle mass and FFMI, shown as a rotatable 3D hologram with Hologram / Muscle / Skeleton views that reshapes with your results
 - **🎨 Themes**: pick any accent color and background in Settings
 
 ## Setting up the food scanner (free)

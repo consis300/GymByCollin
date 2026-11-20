@@ -134,8 +134,8 @@ h1,h2,h3{font-family:var(--head);letter-spacing:-.02em}
 .tip{display:flex;gap:12px;align-items:flex-start}
 .tip p{font-size:13px;line-height:1.55;color:var(--muted)}
 .tip p b{color:var(--text)}
-nav.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 12px);z-index:20;width:calc(100% - 28px);max-width:452px;display:flex;justify-content:space-between;padding:8px;border-radius:24px;background:color-mix(in srgb,var(--card) 85%,transparent);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid var(--line);box-shadow:0 20px 40px rgba(0,0,0,.5)}
-nav.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 6px;border-radius:17px;color:var(--faint);font-size:10.5px;font-weight:600;transition:.25s}
+nav.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 12px);z-index:20;width:calc(100% - 24px);max-width:456px;display:flex;justify-content:space-between;gap:2px;padding:7px;border-radius:24px;background:color-mix(in srgb,var(--card) 85%,transparent);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid var(--line);box-shadow:0 20px 40px rgba(0,0,0,.5)}
+nav.tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 6px;border-radius:16px;color:var(--faint);font-size:10px;font-weight:600;transition:.25s}
 nav.tabs button svg{width:21px;height:21px}
 nav.tabs button.on{color:#fff;background:rgba(var(--prgb),.16)}
 nav.tabs button.on svg{color:var(--p3);filter:drop-shadow(0 0 8px rgba(var(--prgb),.7))}
@@ -327,6 +327,7 @@ body.booting .shell,body.booting nav.tabs{opacity:0}
   </div>
   <div class="view on" id="v-home"></div>
   <div class="view" id="v-goal"></div>
+  <div class="view" id="v-body"></div>
   <div class="view" id="v-train"></div>
   <div class="view" id="v-fuel"></div>
   <div class="view" id="v-recover"></div>
@@ -337,6 +338,7 @@ body.booting .shell,body.booting nav.tabs{opacity:0}
 <nav class="tabs" id="tabs" style="display:none">
   <button class="on" data-t="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
   <button data-t="goal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>Goal</button>
+  <button data-t="body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2.2"/><path d="M6 9h12M12 9v6M12 15l-3 6M12 15l3 6M8 9l-1 5M16 9l1 5"/></svg>Body</button>
   <button data-t="train"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9v6M7.5 7v10M16.5 7v10M20 9v6M7.5 12h9"/></svg>Train</button>
   <button data-t="fuel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-4.5 0-8-3.5-8-8 0-3 2-5.5 4.5-5.5 1.5 0 2.5.7 3.5.7s2-.7 3.5-.7C18 7.5 20 10 20 13c0 4.5-3.5 8-8 8z"/><path d="M12 7.5c0-2 1-4 3-4.5"/></svg>Fuel</button>
   <button data-t="recover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Recover</button>
@@ -575,12 +577,12 @@ function editSheet(title,sub,img){return `<h2>${title}</h2><p class="sub">${sub}
 /* ---------- AI photo scanner ---------- */
 const MODELS=['gemini-flash-latest','gemini-3.8-flash','gemini-2.5-flash'];
 function aiKey(){return (store.get('gbc_ai')||{}).key||''}
-function startPhotoScan(){if(!aiKey())return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The photo scanner uses Google's Gemini AI to recognise your food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
+function startPhotoScan(){bodyTarget=0;if(!aiKey())return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The photo scanner uses Google's Gemini AI to recognise your food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
  ${aiKeyForm()}<button class="btn ghost" style="margin-top:10px" onclick="searchSheet()">Search foods manually instead</button>`);
  openSheet(`<h2>📸 Scan your food</h2><p class="sub">Take a photo from slightly above with the whole plate in view. Putting a fork or your hand in the shot helps the AI judge size.</p>
   <button class="btn" onclick="$('#camIn').click()">${I.cam} Take photo</button><button class="btn ghost" style="margin-top:10px" onclick="$('#picIn').click()">Choose from library</button>`)}
-$('#camIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)analyzePhoto(f)};
-$('#picIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)analyzePhoto(f)};
+const onPic=e=>{const f=e.target.files[0];e.target.value='';const b=bodyTarget;bodyTarget=0;if(f)(b?analyzeBody:analyzePhoto)(f)};
+$('#camIn').onchange=onPic;$('#picIn').onchange=onPic;
 function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const s=Math.min(1,1024/Math.max(img.width,img.height));const c=document.createElement('canvas');
  c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',.85))};img.onerror=rej;img.src=URL.createObjectURL(file)})}
 const AI_PROMPT=`You are a nutrition expert analysing a photo of food for a calorie-tracking app.
@@ -920,12 +922,217 @@ $('#importIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if
 $('#settingsBtn').onclick=openSettings;
 
 /* =================================================================
+   BODY: 3D hologram + body composition
+   ================================================================= */
+const V3={sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],len:a=>Math.hypot(a[0],a[1],a[2]),norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l]},
+ cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2]};
+function rotTo(d){const up=[0,1,0];const c=V3.dot(up,d);if(c>.9999)return [1,0,0,0,1,0,0,0,1];if(c<-.9999)return [1,0,0,0,-1,0,0,0,-1];
+ const ax=V3.norm(V3.cross(up,d)),s=Math.sqrt(1-c*c),t=1-c,[x,y,z]=ax;
+ return [t*x*x+c,t*x*y-s*z,t*x*z+s*y, t*x*y+s*z,t*y*y+c,t*y*z-s*x, t*x*z-s*y,t*y*z+s*x,t*z*z+c]}
+const mv=(R,v)=>[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+// lathe: profile [[r,y]...] bottom->top; emits triangles into layer {p:[],n:[]}
+function lathe(L,prof,segs,place){const N=prof.length,ring=[],nr=[];
+ for(let i=0;i<N;i++){const a=prof[Math.max(0,i-1)],b=prof[Math.min(N-1,i+1)];const dr=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dr,dy)||1;nr.push([dy/l,-dr/l])}
+ for(let i=0;i<N;i++){const row=[];for(let j=0;j<=segs;j++){const t=j/segs*Math.PI*2,c=Math.cos(t),s=Math.sin(t);
+  row.push(place([prof[i][0]*c,prof[i][1],prof[i][0]*s],[nr[i][0]*c,nr[i][1],nr[i][0]*s]))}ring.push(row)}
+ for(let i=0;i<N-1;i++)for(let j=0;j<segs;j++){const a=ring[i][j],b=ring[i+1][j],c=ring[i+1][j+1],d=ring[i][j+1];
+  for(const v of [a,c,b,a,d,c]){L.p.push(v[0][0],v[0][1],v[0][2]);L.n.push(v[1][0],v[1][1],v[1][2])}}}
+function capsule(L,a,b,r1,r2,o={}){const d=V3.sub(b,a),len=V3.len(d),R=rotTo(V3.norm(d)),sz=o.sz||1,sx=o.sx||1,seg=o.seg||14,hs=o.hs||4,prof=[];
+ for(let k=0;k<=hs;k++){const t=-Math.PI/2+k/hs*Math.PI/2;prof.push([r1*Math.cos(t),r1*Math.sin(t)])}
+ for(let k=0;k<=hs;k++){const t=k/hs*Math.PI/2;prof.push([r2*Math.cos(t),len+r2*Math.sin(t)])}
+ lathe(L,prof,seg,(p,n)=>{const q=mv(R,[p[0]*sx,p[1],p[2]*sz]),m=V3.norm(mv(R,[n[0]/sx,n[1],n[2]/sz]));return [[q[0]+a[0],q[1]+a[1],q[2]+a[2]],m]})}
+function ellip(L,c,rx,ry,rz,seg=16,rot){const prof=[];const st=10;for(let k=0;k<=st;k++){const t=-Math.PI/2+k/st*Math.PI;prof.push([Math.cos(t),Math.sin(t)])}
+ lathe(L,prof,seg,(p,n)=>{let q=[p[0]*rx,p[1]*ry,p[2]*rz],m=[n[0]/rx,n[1]/ry,n[2]/rz];if(rot){q=mv(rot,q);m=mv(rot,m)}return [[q[0]+c[0],q[1]+c[1],q[2]+c[2]],V3.norm(m)]})}
+function torso(L,prof,depth,belly){lathe(L,prof,28,(p,n)=>{const front=p[2]>0?1:0;const dz=depth+(front?belly*Math.max(0,1-Math.abs(p[1]-1.07)/.16):0);
+ return [[p[0],p[1],p[2]*dz],V3.norm([n[0],n[1],n[2]/dz])]})}
+const mirror=f=>{f(1);f(-1)};
+function buildBody(m,f,female){const B={p:[],n:[]},M={p:[],n:[]},S={p:[],n:[]};
+ const sw=(female?.165:.19)*Math.min(m,1.18),hipR=female?.172:.152,waistR=female?.122:.134,chestR=(female?.152:.168)*m;
+ // ---- torso profiles
+ const tp=(add)=>[[0,.86],[hipR*.7+add(.9),.88],[hipR+add(1.2),.93],[(hipR+waistR)/2+add(1.4),1.0],[waistR+add(1.6),1.08],[waistR*1.07+add(1.3),1.17],[chestR*.94+add(.9),1.26],[chestR+add(.8),1.34],[chestR*.97*Math.min(m,1.15)+add(.6),1.41],[chestR*.72+add(.5),1.47],[.06+add(.3),1.51],[0,1.52]];
+ torso(M,tp(()=>0),.6,0);torso(S,tp(k=>f*k+.008),.62+f*.6,f*2.2);
+ // head & neck
+ for(const [L,a] of [[M,0],[S,.008]]){ellip(L,[0,1.665,0],.093+a,.113+a,.104+a,20);capsule(L,[0,1.47,0],[0,1.6,.005],.052*Math.min(m,1.15)+a+f*.3,.045+a)}
+ // muscle detail
+ mirror(s=>{ellip(M,[s*.072,1.355,.075*m],.072*m,.052*m,.032*m,14);                                 // pecs
+  ellip(M,[s*sw,1.435,0],.062*m,.058*m,.06*m,14);                                                        // delts
+  ellip(M,[s*.13,1.27,-.03],.045*m,.11,.065*m,12);                                                       // lats
+  ellip(M,[s*.065,1.47,-.03],.07*m,.035*m,.04,12);                                                       // traps
+  ellip(M,[s*.07,.9,-.075],.075*m,.075,.055*m,12);                                                       // glutes
+  for(let r=0;r<3;r++)ellip(M,[s*.032,1.23-r*.065,.073],.028,.026,.014+.004*m,10)});                    // abs
+ // limbs
+ const arm=s=>{const Sh=[s*sw,1.43,0],E=[s*(sw+.035),1.155,-.01],Wr=[s*(sw+.05),.9,.025],H=[s*(sw+.055),.83,.03];return {Sh,E,Wr,H}};
+ const leg=s=>{const Hp=[s*.088,.9,0],K=[s*.097,.5,.012],A=[s*.098,.09,-.01];return {Hp,K,A}};
+ mirror(s=>{const {Sh,E,Wr,H}=arm(s),{Hp,K,A}=leg(s);
+  capsule(M,Sh,E,.046*m,.036*m);capsule(M,E,Wr,.04*m,.026);ellip(M,H,.026,.048,.014,10);
+  ellip(M,[s*(sw+.02),1.29,.028],.038*m,.068,.036*m,12);ellip(M,[s*(sw+.025),1.28,-.03],.036*m,.072,.034*m,12); // biceps/triceps
+  capsule(M,Hp,K,.088*Math.min(m,1.2),.054*m);capsule(M,K,A,.05*m,.03);ellip(M,[s*.098,.36,-.03],.046*m,.085,.046*m,12);ellip(M,[s*.097,.72,.04],.06*m,.13,.05*m,12);
+  ellip(M,[s*.098,.04,.035],.038,.03,.095,12);
+  capsule(S,Sh,E,.05*m+f*.5+.008,.04*m+f*.35+.008);capsule(S,E,Wr,.043*m+f*.2+.008,.03+.008);ellip(S,H,.03,.052,.018,10);
+  ellip(S,[s*(sw+.022),1.285,0],.048*m+f*.5,.08,.05*m+f*.5,12);
+  capsule(S,Hp,K,.095*Math.min(m,1.2)+f*1.2+.008,.058*m+f*.5+.008);capsule(S,K,A,.054*m+f*.4+.008,.034+.008);ellip(S,[s*.098,.04,.035],.042,.034,.1,12)});
+ // ---- skeleton
+ ellip(B,[0,1.675,-.005],.08,.095,.092,18);ellip(B,[0,1.6,.035],.05,.03,.045,12);
+ mirror(s=>{ellip(B,[s*.03,1.68,.075],.018,.016,.01,8)});
+ for(let i=0;i<24;i++){const y=.95+i*.025,z=-.045-.012*Math.sin((y-.95)/.6*Math.PI*1.4);ellip(B,[0,y,z],.019,.009,.017,8)}
+ for(let r=0;r<9;r++){const y=1.41-r*.032,rx=(female?.1:.11)*(.82+.18*Math.sin((r+1)/10*Math.PI))*Math.min(m,1.1),rz=.075;
+  mirror(s=>{let prev=null;for(let k=0;k<=12;k++){const t=-Math.PI/2+k/12*(Math.PI*.92);const pt=[s*rx*Math.cos(t),y-.035*Math.sin(k/12*Math.PI*.6)*.6,-.03+rz*Math.sin(t)];
+   if(prev)capsule(B,prev,pt,.0065,.0065,{seg:6,hs:1});prev=pt}})}
+ capsule(B,[0,1.2,.07],[0,1.43,.06],.012,.012,{sx:1.6,seg:8});
+ mirror(s=>{const {Sh,E,Wr,H}=arm(s),{Hp,K,A}=leg(s);
+  capsule(B,[s*.02,1.465,.05],[s*(sw-.02),1.455,.0],.01,.01,{seg:8});ellip(B,[s*(sw*.62),1.37,-.075],.05,.06,.012,10);
+  ellip(B,Sh,.024,.024,.024,10);capsule(B,Sh,E,.015,.013,{seg:8});ellip(B,E,.018,.018,.018,8);
+  capsule(B,E,Wr,.009,.009,{seg:6});capsule(B,[E[0]-s*.012,E[1],E[2]-.01],[Wr[0]-s*.012,Wr[1],Wr[2]-.005],.008,.008,{seg:6});
+  for(let k=0;k<4;k++)capsule(B,[H[0]-s*.012+s*k*.009,H[1]+.03,H[2]],[H[0]-s*.014+s*k*.011,H[1]-.04,H[2]+.005],.0045,.004,{seg:5,hs:1});
+  ellip(B,[s*.075,.99,-.015],.07,.055,.028,12,rotTo(V3.norm([s*.5,1,.4])));ellip(B,Hp,.024,.024,.024,10);
+  capsule(B,Hp,K,.019,.016,{seg:8});ellip(B,[K[0],K[1],K[2]+.035],.02,.022,.012,8);ellip(B,K,.024,.02,.022,8);
+  capsule(B,K,A,.015,.012,{seg:8});capsule(B,[K[0]+s*.022,K[1]-.02,K[2]-.01],[A[0]+s*.02,A[1]+.02,A[2]-.005],.007,.007,{seg:6});
+  ellip(B,[A[0],.04,.03],.03,.018,.085,10)});
+ ellip(B,[0,.92,-.03],.05,.05,.03,10);
+ return {B,M,S}}
+
+let GL=null;
+function initGL(canvas){const gl=canvas.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:false});if(!gl)return null;
+ const vs=`attribute vec3 aP;attribute vec3 aN;uniform mat4 uVP;uniform float uRot;varying vec3 vN;varying vec3 vW;
+ void main(){float c=cos(uRot),s=sin(uRot);vec3 p=vec3(c*aP.x+s*aP.z,aP.y,-s*aP.x+c*aP.z);vN=vec3(c*aN.x+s*aN.z,aN.y,-s*aN.x+c*aN.z);vW=p;gl_Position=uVP*vec4(p,1.0);}`;
+ const fs=`precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec3 uC;uniform float uA;uniform float uRim;uniform float uScan;uniform vec3 uCam;
+ void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);float d=max(dot(N,normalize(vec3(.4,.8,.6))),0.)*.65+max(dot(N,normalize(vec3(-.6,.2,-.4))),0.)*.2+.28;
+ float r=pow(1.-max(dot(N,V),0.),2.2);float band=smoothstep(.035,0.,abs(vW.y-uScan));
+ vec3 col=uC*d+uC*r*uRim*1.4+vec3(band)*.9*uC+band*.25;gl_FragColor=vec4(col,clamp(uA+r*uRim*.55+band*.35,0.,1.));}`;
+ const sh=(t,src)=>{const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);return s};
+ const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);gl.useProgram(pr);
+ const u={};['uVP','uRot','uC','uA','uRim','uScan','uCam'].forEach(n=>u[n]=gl.getUniformLocation(pr,n));
+ return {gl,pr,u,aP:gl.getAttribLocation(pr,'aP'),aN:gl.getAttribLocation(pr,'aN'),layers:{}}}
+function upload(G,name,L){const gl=G.gl;const mk=a=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(a),gl.STATIC_DRAW);return b};
+ const old=G.layers[name];if(old){gl.deleteBuffer(old.p);gl.deleteBuffer(old.n)}G.layers[name]={p:mk(L.p),n:mk(L.n),count:L.p.length/3}}
+function persp(f,a,n,fa){const t=1/Math.tan(f/2);return [t/a,0,0,0,0,t,0,0,0,0,(fa+n)/(n-fa),-1,0,0,2*fa*n/(n-fa),0]}
+function lookAt(e,c){const z=V3.norm(V3.sub(e,c)),x=V3.norm(V3.cross([0,1,0],z)),y=V3.cross(z,x);return [x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-V3.dot(x,e),-V3.dot(y,e),-V3.dot(z,e),1]}
+function mmul(a,b){const o=new Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s}return o}
+const MODES={holo:{B:[.85,0],M:[.5,.55],S:[.045,.75]},muscle:{B:[0,0],M:[1,.3],S:[.035,.6]},skeleton:{B:[1,0],M:[.07,.5],S:[.025,.5]}};
+let bodyMode='holo',rot=.5,cur3={B:.85,M:.5,S:.045},drag=null,lastInt=0,raf3=0,bodyKey='';
+function colorOf(v){const s=getComputedStyle(document.documentElement).getPropertyValue(v).trim();const [r,g,b]=hexToRgb(s.startsWith('#')?s:'#a855f7');return [r/255,g/255,b/255]}
+function startBody3D(stats){const cv=$('#body3d');if(!cv)return;cancelAnimationFrame(raf3);
+ const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;
+ if(!GL||GL.gl.canvas!==cv){GL=initGL(cv);bodyKey=''}if(!GL){cv.insertAdjacentHTML('afterend','<p class="sub" style="text-align:center">3D isn\'t supported on this device.</p>');return}
+ const k=[stats.m.toFixed(3),stats.f.toFixed(3),stats.female].join();if(k!==bodyKey){const b=buildBody(stats.m,stats.f,stats.female);upload(GL,'B',b.B);upload(GL,'M',b.M);upload(GL,'S',b.S);bodyKey=k}
+ const {gl,u}=GL;gl.viewport(0,0,cv.width,cv.height);
+ const cam=[0,.95,3.45],VP=mmul(persp(.6,w/h,.1,20),lookAt(cam,[0,.84,0]));
+ cv.onpointerdown=e=>{drag={x:e.clientX,r:rot};lastInt=performance.now();cv.setPointerCapture(e.pointerId)};
+ cv.onpointermove=e=>{if(drag){rot=drag.r+(e.clientX-drag.x)*.012;lastInt=performance.now()}};
+ cv.onpointerup=cv.onpointercancel=()=>{drag=null;lastInt=performance.now()};
+ let t0=performance.now();
+ const frame=now=>{if(!document.body.contains(cv))return;const dt=Math.min(.05,(now-t0)/1000);t0=now;
+  if(!drag&&now-lastInt>1500)rot+=dt*.45;const tg=MODES[bodyMode];for(const L of ['B','M','S'])cur3[L]+=(tg[L][0]-cur3[L])*Math.min(1,dt*6);
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.frontFace(gl.CCW);
+  gl.uniformMatrix4fv(u.uVP,false,new Float32Array(VP));gl.uniform1f(u.uRot,rot);gl.uniform3fv(u.uCam,cam);gl.uniform1f(u.uScan,.05+((now/1000*.32)%1)*1.7);
+  const draw=(L,col,a,rim,additive,write)=>{const ly=GL.layers[L];if(!ly||a<.01)return;gl.bindBuffer(gl.ARRAY_BUFFER,ly.p);gl.enableVertexAttribArray(GL.aP);gl.vertexAttribPointer(GL.aP,3,gl.FLOAT,false,0,0);
+   gl.bindBuffer(gl.ARRAY_BUFFER,ly.n);gl.enableVertexAttribArray(GL.aN);gl.vertexAttribPointer(GL.aN,3,gl.FLOAT,false,0,0);
+   gl.uniform3fv(u.uC,col);gl.uniform1f(u.uA,a);gl.uniform1f(u.uRim,rim);
+   if(a>.97&&!additive){gl.disable(gl.BLEND);gl.depthMask(true)}else{gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,additive?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(!!write)}
+   gl.drawArrays(gl.TRIANGLES,0,ly.count)};
+  const p2=colorOf('--p2'),p3=colorOf('--p3');
+  draw('B',[.82,.8,.9],cur3.B,.2,false,true);
+  draw('M',p2,cur3.M,MODES[bodyMode].M[1],false,cur3.M>.97);
+  draw('S',p3.map(c=>c*.9+.1),cur3.S,MODES[bodyMode].S[1],true,false);
+  gl.depthMask(true);raf3=requestAnimationFrame(frame)};
+ raf3=requestAnimationFrame(frame)}
+
+/* ---------- composition math ---------- */
+function bodyScans(){return store.get('gbc_body')||[]}
+function bmiBF(){const h=P.heightCm/100,bmi=P.kg/(h*h),male=P.sex!=='f'?1:0;
+ return P.age<18?Math.max(5,1.51*bmi-.70*P.age-3.6*male+1.4):Math.max(4,1.2*bmi+.23*P.age-10.8*male-5.4)}
+function bodyStats(){const sc=bodyScans(),last=sc[sc.length-1],female=P.sex==='f';const bf=last?last.bf:bmiBF();
+ const kg=P.kg,h=P.heightCm/100,fat=kg*bf/100,lbm=kg-fat,ffmi=lbm/(h*h),ffmiN=ffmi+6.1*(1.8-h);
+ const m=Math.max(.82,Math.min(1.28,.9+(ffmiN-(female?15.5:19))*.05)),f=Math.max(0,Math.min(1.15,(bf-(female?16:9))/28))*.07;
+ return {bf,last,fat,lbm,smm:lbm*(female?.46:.52),ffmi:ffmiN,m,f,female}}
+function bfCats(){return P.sex==='f'?[['Essential',10,14],['Athletic',14,21],['Fit',21,25],['Average',25,32],['Higher',32,45]]:[['Essential',2,6],['Athletic',6,14],['Fit',14,18],['Average',18,25],['Higher',25,40]]}
+function bfCat(bf){const c=bfCats();return (c.find(x=>bf<x[2])||c[c.length-1])[0]}
+function ffmiCat(v){const t=P.sex==='f'?[[14,'Below average'],[16,'Average'],[18,'Above average'],[20,'Excellent'],[99,'Elite']]:[[18,'Below average'],[20,'Average'],[22,'Above average'],[23.5,'Excellent'],[99,'Elite']];return t.find(x=>v<x[0])[1]}
+const KG=v=>P.units==='met'?v.toFixed(1)+' kg':(v/.4536).toFixed(1)+' lb';
+
+/* ---------- render ---------- */
+function renderBody(){const s=bodyStats(),sc=bodyScans(),cats=bfCats(),lo=cats[0][1],hi=cats[cats.length-1][2];
+ const src=!s.last?'Rough estimate from your BMI. Scan a photo or measure for a real number.':s.last.method==='ai'?`AI photo estimate (${s.last.low}–${s.last.high}%, ${s.last.conf} confidence)`:'U.S. Navy tape-measure method';
+ $('#v-body').innerHTML=`
+ <div class="hello"><small>Your body, in 3D</small><h1>Body Scan</h1></div>
+ <div class="card hero" style="padding:0">
+  <div style="position:absolute;top:16px;left:18px;z-index:2;pointer-events:none"><div class="label">Body fat</div><div class="big" style="font-size:40px">${s.bf.toFixed(1)}<small>%</small></div><span class="pill">${bfCat(s.bf)}</span></div>
+  <div style="position:absolute;top:16px;right:18px;z-index:2;text-align:right;pointer-events:none"><div class="label">FFMI</div><div style="font-family:var(--head);font-size:24px;font-weight:800;margin-top:6px">${s.ffmi.toFixed(1)}</div><small class="muted" style="font-size:11px">${ffmiCat(s.ffmi)}</small></div>
+  <canvas id="body3d" style="width:100%;height:470px;margin-top:40px;display:block;touch-action:none;cursor:grab"></canvas>
+  <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--faint);pointer-events:none">Drag to rotate</div>
+ </div>
+ <div class="seg" style="margin-bottom:14px">${[['holo','Hologram'],['muscle','Muscle'],['skeleton','Skeleton']].map(([k,n])=>`<button class="${bodyMode===k?'on':''}" onclick="bodyMode='${k}';$$('#v-body .seg button').forEach((b,i)=>b.classList.toggle('on',i===${['holo','muscle','skeleton'].indexOf(k)}))">${n}</button>`).join('')}</div>
+ <div class="row" style="margin-bottom:14px"><button class="btn" onclick="bodyPhoto()">${I.cam} Scan photo</button><button class="btn ghost" onclick="navySheet()">📏 Measure</button></div>
+ <div class="card"><div class="stat-grid">
+  <div class="stat"><small>Lean body mass</small><b>${KG(s.lbm)}</b></div><div class="stat"><small>Fat mass</small><b>${KG(s.fat)}</b></div>
+  <div class="stat"><small>Skeletal muscle (est.)</small><b class="grad-text">${KG(s.smm)}</b></div><div class="stat"><small>Muscle % of body</small><b>${(s.smm/P.kg*100).toFixed(0)}%</b></div></div>
+  <div class="label" style="margin:18px 0 10px">Where you are</div>
+  <div style="position:relative;height:10px;border-radius:10px;overflow:hidden;display:flex">${cats.map((c,i)=>`<div style="flex:${c[2]-c[1]};background:rgba(var(--prgb),${.18+i*.16})"></div>`).join('')}</div>
+  <div style="position:relative;height:14px"><div style="position:absolute;left:${Math.max(0,Math.min(100,(s.bf-lo)/(hi-lo)*100))}%;transform:translateX(-50%);top:-14px;width:4px;height:18px;border-radius:3px;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.8)"></div></div>
+  <div style="display:flex;font-size:9.5px;color:var(--muted)">${cats.map(c=>`<span style="flex:${c[2]-c[1]};text-align:center">${c[0]}</span>`).join('')}</div>
+  <p class="muted" style="font-size:12px;margin-top:12px;line-height:1.5">Based on: ${src}</p></div>
+ <div class="card"><div class="tip"><div class="ic">${I.bolt}</div><p>${bodyAdvice(s)}</p></div></div>
+ ${P.age<18?`<div class="note"><b>Still growing?</b> Body fat naturally shifts a lot during the teen years. Focus on getting stronger and eating enough rather than chasing a low number. Healthy and athletic ranges are plenty.</div>`:''}
+ ${sc.length?`<div class="sec-title"><h2>History</h2><span>${sc.length} scan${sc.length>1?'s':''}</span></div><div class="card">${sc.slice().reverse().map(x=>`<div class="li"><div class="ic" style="font-size:16px">${x.method==='ai'?'📸':'📏'}</div><div class="tx"><b>${x.bf.toFixed(1)}% body fat</b><small>${new Date(x.t).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})} · ${x.method==='ai'?'Photo':'Tape'} · ${KG(x.kg)}</small></div><button class="iconbtn" style="width:30px;height:30px" onclick="delScan(${x.t})">${I.x}</button></div>`).join('')}</div>`:''}
+ <p class="disclaimer">All numbers are estimates. Photo estimates are usually within ±3–5% and tape measurements within ±3–4%. For lab-grade numbers you'd need a DEXA scan. Your photo is never saved.</p>`;
+ requestAnimationFrame(()=>startBody3D(s))}
+function bodyAdvice(s){const g=P.goal,cat=bfCat(s.bf);
+ if(g==='bulk')return s.bf>(P.sex==='f'?30:22)?`<b>Heads up:</b> at ${s.bf.toFixed(0)}% body fat, a short cut or a recomp first would make your bulk leaner and the muscle easier to see.`:`<b>Good spot to bulk.</b> At ${cat.toLowerCase()} body fat you'll build muscle efficiently. Scan every 4–6 weeks and keep the gain slow.`;
+ if(g==='cut')return `<b>Cut check-in:</b> rescan every 3–4 weeks. If your lean mass holds steady while body fat drops, you're losing fat and not muscle.`;
+ return `<b>Recomp tracking:</b> your weight won't move much, so the trend to watch is lean mass going up and fat mass going down.`}
+function delScan(t){store.set('gbc_body',bodyScans().filter(x=>x.t!==t));renderBody()}
+function saveScan(o){const sc=bodyScans();sc.push({t:Date.now(),kg:P.kg,...o});store.set('gbc_body',sc);closeSheet();buzz([30,40,30]);toast(`✓ Body fat: ${o.bf.toFixed(1)}%`);go('body')}
+
+/* ---------- photo scan ---------- */
+function bodyPhoto(){if(!aiKey())return openSheet(`<h2>📸 Body scan</h2><p class="sub">Photo body-fat estimates use Google's Gemini AI, which needs a <b>free</b> API key. You can also use the tape-measure method with no key.</p>${aiKeyForm()}<button class="btn ghost" style="margin-top:10px" onclick="navySheet()">Use tape measure instead</button>`);
+ openSheet(`<h2>📸 Body scan photo</h2><p class="sub">For the best estimate:</p>
+ <div class="card" style="background:var(--card2)">${[['💡','Good, even lighting','Face a window or light. Avoid harsh shadows.'],['🧍','Stand straight, relaxed','Front-facing, arms slightly away from your sides. Don\'t flex.'],['👕','Fitted clothing or shirtless','The more of your torso shape is visible, the better the estimate.'],['📏','Waist to head in frame','Take it from about chest height, 1–2 m away.']].map(([e,t,d])=>`<div class="li"><div class="ic" style="font-size:18px">${e}</div><div class="tx"><b>${t}</b><small>${d}</small></div></div>`).join('')}</div>
+ <button class="btn" onclick="bodyTarget=1;$('#camIn').click()">${I.cam} Take photo</button><button class="btn ghost" style="margin-top:10px" onclick="bodyTarget=1;$('#picIn').click()">Choose from library</button>
+ <p class="disclaimer">The photo is sent to Google only to get the estimate. It isn't stored in the app.</p>`)}
+let bodyTarget=0;
+const BODY_SCHEMA={type:'OBJECT',properties:{person_visible:{type:'BOOLEAN'},bf_low:{type:'NUMBER'},bf_high:{type:'NUMBER'},bf_best:{type:'NUMBER'},muscularity:{type:'STRING',enum:['low','average','athletic','very muscular']},confidence:{type:'STRING',enum:['high','medium','low']},notes:{type:'STRING'}},required:['person_visible','bf_low','bf_high','bf_best','muscularity','confidence']};
+async function analyzeBody(file){let img;try{img=await shrink(file)}catch(e){return toast('Could not read that photo')}
+ openSheet(`<h2>Scanning…</h2><div class="spin"></div><p class="sub" style="text-align:center">Estimating body composition</p>`);
+ const prompt=`You are a sports-science assistant in a fitness app. Estimate the body fat percentage of the person in this photo the way an experienced coach would by eye, using visible muscle definition, abdominal and oblique detail, vascularity, and fat distribution.
+Context the user entered: ${P.sex==='f'?'female':'male'}, age ${P.age}, height ${Math.round(P.heightCm)} cm, weight ${P.kg.toFixed(1)} kg.
+Give a realistic range (bf_low to bf_high, no wider than 6 points) and a best estimate. Lower the confidence if clothing hides the torso or the lighting or angle is poor.
+In "notes", write 1–2 neutral, encouraging sentences about what the estimate is based on. Never comment on attractiveness, and never use judgmental language.
+If no person's body is visible, set person_visible false.`;
+ try{const key=aiKey();const saved=(store.get('gbc_ai')||{}).model;let out,lastErr;
+  for(const m of [saved,...MODELS].filter((v,i,a)=>v&&a.indexOf(v)===i)){const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
+    body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:img.split(',')[1]}}]}],generationConfig:{temperature:.2,responseMimeType:'application/json',responseSchema:BODY_SCHEMA}})});
+   const j=await r.json();if(!r.ok){lastErr=j.error?.message||'HTTP '+r.status;if(r.status===404)continue;break}
+   out=JSON.parse(j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'{}');break}
+  img=null;
+  if(!out)throw new Error(lastErr||'No response');
+  if(!out.person_visible)return openSheet(`<h2>Couldn't see a body</h2><p class="sub">${esc(out.notes||'Make sure your torso is in the frame and well lit.')}</p><button class="btn" onclick="bodyPhoto()">Try again</button>`);
+  const bf=Math.max(3,Math.min(60,out.bf_best));
+  openSheet(`<div style="text-align:center"><div class="label">Estimated body fat</div><div class="big grad-text" style="font-size:56px;margin:10px 0">${bf.toFixed(1)}%</div>
+   <span class="pill">${out.bf_low}–${out.bf_high}% · ${out.confidence} confidence</span></div>
+   <p class="sub" style="margin-top:16px;text-align:center">${esc(out.notes||'')}</p>
+   <button class="btn" onclick='saveScan({bf:${bf},method:"ai",low:${+out.bf_low},high:${+out.bf_high},conf:${JSON.stringify(out.confidence)}})'>Save & build my 3D model</button>
+   <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Discard</button>`)}
+ catch(e){openSheet(`<h2>Scan failed</h2><p class="sub">${esc(e.message)}</p><button class="btn" onclick="bodyPhoto()">Try again</button><button class="btn ghost" style="margin-top:10px" onclick="aiSheet()">Check API key</button>`)}}
+
+/* ---------- navy tape method ---------- */
+function navySheet(){const met=P.units==='met',u=met?'cm':'in',f=P.sex==='f';
+ openSheet(`<h2>📏 Tape measure</h2><p class="sub">The U.S. Navy method. It needs a soft measuring tape and is often more accurate than a photo. Measure on bare skin, relaxed, in the morning.</p>
+ <div class="field"><label>Neck <small>· just below the Adam's apple</small></label><div class="inp-wrap"><input class="inp" id="nvN" type="number" inputmode="decimal"><span>${u}</span></div></div>
+ <div class="field"><label>Waist <small>· ${f?'narrowest point':'at the belly button'}, relaxed</small></label><div class="inp-wrap"><input class="inp" id="nvW" type="number" inputmode="decimal"><span>${u}</span></div></div>
+ ${f?`<div class="field"><label>Hips <small>· widest point</small></label><div class="inp-wrap"><input class="inp" id="nvH" type="number" inputmode="decimal"><span>${u}</span></div></div>`:''}
+ <div class="err" id="nvErr">Check your measurements. Waist must be bigger than neck.</div>
+ <button class="btn" onclick="calcNavy()">Calculate</button>`)}
+function calcNavy(){const k=P.units==='met'?1:2.54,n=+$('#nvN').value*k,w=+$('#nvW').value*k,hp=$('#nvH')?+$('#nvH').value*k:0,h=P.heightCm;let bf;
+ if(P.sex==='f')bf=495/(1.29579-.35004*Math.log10(w+hp-n)+.221*Math.log10(h))-450;else bf=495/(1.0324-.19077*Math.log10(w-n)+.15456*Math.log10(h))-450;
+ if(!n||!w||w<=n||!isFinite(bf)||bf<2||bf>60){$('#nvErr').style.display='block';return}saveScan({bf,method:'navy'})}
+
+/* =================================================================
    NAV
    ================================================================= */
-const VIEWS=['home','goal','train','fuel','recover'];
-const R={home:renderHome,goal:renderGoal,train:renderTrain,fuel:renderFuel,recover:renderRecover};
+const VIEWS=['home','goal','body','train','fuel','recover'];
+const R={home:renderHome,goal:renderGoal,body:renderBody,train:renderTrain,fuel:renderFuel,recover:renderRecover};
 let cur='home';
-function go(t){if(!VIEWS.includes(t))t='home';if(t!=='train')clearInterval(tick);cur=t;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$$('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));
+function go(t){if(!VIEWS.includes(t))t='home';if(t!=='body')cancelAnimationFrame(raf3);if(t!=='train')clearInterval(tick);cur=t;$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$$('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));
  L=log();R[t]();scrollTo({top:0});if(location.hash!=='#'+t)history.replaceState(null,'','#'+t)}
 function rerender(){if($('#app').style.display!=='none'){L=log();R[cur]()}}
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.t));
