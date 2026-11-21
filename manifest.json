@@ -1,6 +1,6 @@
 {
-  "name": "GymByCollin",
-  "short_name": "GymByCollin",
+  "name": "NextRepDaily",
+  "short_name": "NextRepDaily",
   "description": "Calories, workout splits, food, water, sleep and steps — built around your goal.",
   "start_url": "./",
   "display": "standalone",

@@ -1,8 +1,8 @@
-# 💜 GymByCollin
+# 💜 NextRepDaily
 
 A sleek black-and-purple fitness app, built for your phone.
 
-Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** or **maintain**), and GymByCollin builds your plan:
+Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** or **maintain**), and NextRepDaily builds your plan:
 
 - **Home**: daily calories and macros, today's workout, and water, sleep and step rings
 - **Goal**: weekly weight-change target, a timeline to your goal weight, and a step-by-step plan for getting there
@@ -19,7 +19,7 @@ Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** o
 
 The photo scanner uses Google Gemini:
 1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and create a free API key
-2. In GymByCollin, open ⚙️ **Settings → Food scanner AI key** and paste it in
+2. In NextRepDaily, open ⚙️ **Settings → Food scanner AI key** and paste it in
 
 The key is stored only on your phone. Barcode scanning needs no key.
 
@@ -27,7 +27,7 @@ The key is stored only on your phone. Barcode scanning needs no key.
 
 ## Use it on your phone
 
-1. Open the GitHub Pages link: **https://consis300.github.io/GymByCollin/**
+1. Open the GitHub Pages link: **https://consis300.github.io/NextRepDaily/**
 2. **iPhone:** tap Share → **Add to Home Screen**. **Android:** tap ⋮ → **Add to Home screen**.
 3. It opens full-screen with its own icon, like a real app. Your profile, workouts and logs are saved on your phone. Use **Settings → Back up my data** now and then so you don't lose your PRs.
 
