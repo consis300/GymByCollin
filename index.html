@@ -31,7 +31,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(60% 40% at 100% 0%,rgba(var(--p1rgb),.22),transparent 70%),radial-gradient(50% 35% at 0% 100%,rgba(var(--prgb),.12),transparent 70%)}
 .shell{position:relative;z-index:1;max-width:480px;margin:0 auto;min-height:100vh;padding:calc(var(--st) + 18px) 18px calc(var(--sb) + 110px)}
 button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
-input,select{font:inherit;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
 h1,h2,h3{font-family:var(--head);letter-spacing:-.02em}
 .muted{color:var(--muted)}.faint{color:var(--faint)}
 .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -688,40 +688,76 @@ function setG(i,v,live){EDIT[i].grams=Math.max(1,+v||1);if(live){const el=$('#fi
 function updTotal(){const t=EDIT.reduce((a,it)=>({k:a.k+per(it.k100,it.grams),p:a.p+per(it.p100,it.grams)}),{k:0,p:0});const el=$('#editTotal');if(el)el.innerHTML=`Add ${EDIT.length>1?'all ':''}· ${fmt(t.k)} kcal · ${Math.round(t.p)}g protein`}
 function renderEdit(){$('#editList').innerHTML=EDIT.map(itemCard).join('');updTotal()}
 function commitEdit(){EDIT.forEach(it=>addFood({name:it.name,grams:Math.round(it.grams),kcal:per(it.k100,it.grams),p:per(it.p100,it.grams),c:per(it.c100,it.grams),f:per(it.f100,it.grams),src:it.src}));EDIT=[];closeSheet()}
-function editSheet(title,sub,img){return `<h2>${title}</h2><p class="sub">${sub}</p>${img?`<img class="preview" src="${img}">`:''}<div id="editList"></div>
- <button class="btn" id="editTotal" onclick="commitEdit()">Add</button><button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Cancel</button>`}
 
 /* ---------- AI photo scanner ---------- */
 const MODELS=['gemini-flash-latest','gemini-3.8-flash','gemini-2.5-flash'];
 function aiKey(){return (store.get('gbc_ai')||{}).key||''}
-function startPhotoScan(){bodyTarget=0;labelCode=null;if(!aiKey())return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The photo scanner uses Google's Gemini AI to recognise your food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
- ${aiKeyForm()}<button class="btn ghost" style="margin-top:10px" onclick="searchSheet()">Search foods manually instead</button>`);
- openSheet(`<h2>📸 Scan your food</h2><p class="sub">Take a photo from slightly above with the whole plate in view. Putting a fork or your hand in the shot helps the AI judge size.</p>
-  <button class="btn" onclick="$('#camIn').click()">${I.cam} Take photo</button><button class="btn ghost" style="margin-top:10px" onclick="$('#picIn').click()">Choose from library</button>`)}
+let LAST={img:null,text:'',note:''};
+function needKey(){return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The food scanner uses Google's Gemini AI to recognise any food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
+ ${aiKeyForm()}<button class="btn ghost" style="margin-top:12px" onclick="searchSheet()">Search foods manually instead</button>`)}
+function startPhotoScan(){bodyTarget=0;labelCode=null;if(!aiKey())return needKey();
+ openSheet(`<h2>📸 Scan your food</h2><p class="sub">Any meal, snack, drink or package. Shoot from slightly above with the whole plate in view, and a fork or your hand in the shot helps with size.</p>
+  <div class="field" style="margin-bottom:16px"><label>Add details <small>(optional, makes it more accurate)</small></label><input class="inp" id="aiNote" placeholder="e.g. Chipotle bowl, double chicken" autocomplete="off"></div>
+  <button class="btn" onclick="LAST.note=$('#aiNote').value.trim();$('#camIn').click()">${I.cam} Take photo</button>
+  <button class="btn ghost" style="margin-top:12px" onclick="LAST.note=$('#aiNote').value.trim();$('#picIn').click()">Choose from library</button>
+  <button class="btn ghost" style="margin-top:12px" onclick="describeSheet()">✍️ No photo? Describe it</button>`)}
+function describeSheet(prefill){if(!aiKey())return needKey();
+ openSheet(`<h2>✍️ Describe your food</h2><p class="sub">Type what you ate in plain words, including brand, restaurant and amount if you know them. Works for anything.</p>
+  <textarea class="inp" id="dsc" rows="3" style="resize:none;margin-bottom:10px" placeholder="e.g. 2 slices Domino's pepperoni pizza and a can of Coke">${esc(prefill||'')}</textarea>
+  <div class="chips" style="margin-bottom:14px">${['Big Mac meal, medium fries','Bowl of Honey Nut Cheerios with 2% milk','Grande iced caramel latte','Homemade chicken alfredo, 1 plate'].map(x=>`<button class="chip" onclick="$('#dsc').value='${x}'">${x}</button>`).join('')}</div>
+  <button class="btn" onclick="const v=$('#dsc').value.trim();if(!v)return toast('Type what you ate');LAST={img:null,text:v,note:''};aiFood({text:v})">Log it</button>`)}
 const onPic=e=>{const f=e.target.files[0];e.target.value='';const b=bodyTarget,lc=labelCode;bodyTarget=0;labelCode=null;if(!f)return;if(lc!==null)analyzeLabel(f,lc);else (b?analyzeBody:analyzePhoto)(f)};
 $('#camIn').onchange=onPic;$('#picIn').onchange=onPic;
-function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const s=Math.min(1,1024/Math.max(img.width,img.height));const c=document.createElement('canvas');
- c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',.85))};img.onerror=rej;img.src=URL.createObjectURL(file)})}
-const AI_PROMPT=`You are a nutrition expert analysing a photo of food for a calorie-tracking app.
-Identify each distinct food or drink item visible. For each item, estimate its weight in grams as accurately as possible using visual cues (plate size ~26 cm, utensils, hands, packaging, typical portion sizes) and give nutrition per 100 g using standard USDA-style values for that food as prepared (account for oil, sauces, cooking method).
-Be realistic, not conservative: estimate the actual portion shown. If something is ambiguous, pick the most likely option and lower the confidence. If there is no food in the image, return an empty items list and explain in notes.`;
+function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const s=Math.min(1,1280/Math.max(img.width,img.height));const c=document.createElement('canvas');
+ c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',.88))};img.onerror=rej;img.src=URL.createObjectURL(file)})}
+const AI_RULES=`You are a registered dietitian powering a calorie-tracking app. Your job is to log ANY food or drink accurately.
+Rules:
+- List every food and drink item. Split clearly separable components (e.g. rice, chicken, beans; burger and fries). Keep inseparable dishes as one item (e.g. lasagna, soup, smoothie).
+- Include likely hidden calories as their own items when relevant: cooking oil, butter, dressing, sauce, cheese, sugar in coffee.
+- Packaged foods: if a brand, product name or nutrition label is visible or mentioned, use that product's exact label values.
+- Restaurant and fast-food chains: if the chain is recognisable (packaging, logo, signature item) or mentioned, use that chain's published nutrition and standard portion sizes.
+- Drinks: estimate the volume in ml (treat 1 ml as 1 g) and identify the type exactly (regular vs diet soda, milk type in coffee, alcohol).
+- Use nutrition values for the state shown or described (cooked vs raw, fried vs grilled).
+- Estimate the real portion, not a "standard" one. Visual references: dinner plate about 26 cm, bowl about 15 cm, fork about 19 cm, soda can 355 ml, adult hand about 18 cm.
+- Never refuse and never return nothing for real food: for unusual, regional or homemade dishes, reason from the likely ingredients and give your best estimate with confidence "low".
+- Values are per 100 g. Names should be short and specific (e.g. "Chick-fil-A nuggets (8 ct)", "Grilled chicken breast").
+- User notes and corrections are the truth: they override what you see.`;
 const AI_SCHEMA={type:'OBJECT',properties:{items:{type:'ARRAY',items:{type:'OBJECT',properties:{name:{type:'STRING'},grams:{type:'NUMBER'},kcal_per_100g:{type:'NUMBER'},protein_per_100g:{type:'NUMBER'},carbs_per_100g:{type:'NUMBER'},fat_per_100g:{type:'NUMBER'},confidence:{type:'STRING',enum:['high','medium','low']}},required:['name','grams','kcal_per_100g','protein_per_100g','carbs_per_100g','fat_per_100g','confidence']}},notes:{type:'STRING'}},required:['items']};
-async function callGemini(b64){const key=aiKey();const saved=(store.get('gbc_ai')||{}).model;let lastErr;
+async function geminiJSON(parts,schema){const key=aiKey();const saved=(store.get('gbc_ai')||{}).model;let lastErr;
  for(const m of [saved,...MODELS].filter((v,i,a)=>v&&a.indexOf(v)===i)){
-  try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
-    body:JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{temperature:.2,responseMimeType:'application/json',responseSchema:AI_SCHEMA}})});
-   const j=await r.json();
-   if(!r.ok){lastErr=j.error?.message||('HTTP '+r.status);if(r.status===404||/not found|not supported/i.test(lastErr))continue;throw new Error(lastErr)}
-   const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'{}';const a=store.get('gbc_ai')||{};if(a.model!==m){a.model=m;store.set('gbc_ai',a)}
-   return JSON.parse(txt)}catch(e){lastErr=e.message;if(!/not found|not supported|404/i.test(lastErr))break}}
- throw new Error(lastErr||'Unknown error')}
-async function analyzePhoto(file){let img;try{img=await shrink(file)}catch(e){return toast('Could not read that photo')}
- openSheet(`<h2>Analysing…</h2><img class="preview" src="${img}"><div class="spin"></div><p class="sub" style="text-align:center">Identifying foods and estimating weight</p>`);
- try{const out=await callGemini(img.split(',')[1]);
-  if(!out.items||!out.items.length)return openSheet(`<h2>No food found</h2><img class="preview" src="${img}"><p class="sub">${esc(out.notes||'Try again with the food centered and well lit.')}</p><button class="btn" onclick="startPhotoScan()">Try again</button><button class="btn ghost" style="margin-top:10px" onclick="searchSheet()">Search manually</button>`);
-  EDIT=out.items.map(it=>({name:it.name,grams:Math.max(1,it.grams),base:it.grams,k100:it.kcal_per_100g,p100:it.protein_per_100g,c100:it.carbs_per_100g,f100:it.fat_per_100g,conf:it.confidence,src:'ai'}));
-  openSheet(editSheet('🍽️ Here\'s what I see',`AI estimates. Drag the slider if a portion looks off, and the calories and protein update with it.${out.notes?' '+esc(out.notes):''}`,img));renderEdit()}
- catch(e){openSheet(`<h2>Scan failed</h2><p class="sub">${esc(e.message)}</p>${/key|API_KEY|permission|403|400/i.test(e.message)?'<p class="sub">Check your API key in Settings.</p>':''}<button class="btn" onclick="startPhotoScan()">Try again</button><button class="btn ghost" style="margin-top:10px" onclick="openSettings()">Open settings</button>`)}}
+  for(let attempt=0;attempt<2;attempt++){
+   try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
+     body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:attempt?0:.2,responseMimeType:'application/json',responseSchema:schema}})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){lastErr=j.error?.message||('HTTP '+r.status);if(r.status===404||/not found|not supported/i.test(lastErr))break;if(r.status===429||r.status>=500){await new Promise(z=>setTimeout(z,900));continue}throw new Error(lastErr)}
+    const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';const out=JSON.parse(txt.replace(/^```json|```$/g,''));
+    const a=store.get('gbc_ai')||{};if(a.model!==m){a.model=m;store.set('gbc_ai',a)}return out}
+   catch(e){lastErr=e.message;if(/API key|permission|PERMISSION|invalid/i.test(lastErr))throw e}}}
+ throw new Error(lastErr||'The AI didn\'t respond. Try again.')}
+async function aiFood({img,text,fix,append}){
+ openSheet(`<h2>${fix?'Fixing…':append?'Adding…':'Analysing…'}</h2>${img?`<img class="preview" src="${img}">`:''}<div class="spin"></div><p class="sub" style="text-align:center">${img?'Identifying foods and estimating weight':'Working out the nutrition'}</p>`);
+ const parts=[{text:AI_RULES}];
+ if(img)parts.push({text:'Analyse the food in this photo.'},{inline_data:{mime_type:'image/jpeg',data:img.split(',')[1]}});
+ if(text)parts.push({text:(img?'The user also says: ':'The user describes what they ate (no photo): ')+text});
+ if(LAST.note&&img)parts.push({text:'User notes: '+LAST.note});
+ if(fix){parts.push({text:'Your previous result was: '+JSON.stringify(EDIT.map(e=>({name:e.name,grams:Math.round(e.grams)})))+'\nUser correction: '+fix+'\nReturn the full corrected list of items.'})}
+ try{const out=await geminiJSON(parts,AI_SCHEMA);let items=(out.items||[]).filter(it=>it&&it.name&&it.grams>0);
+  if(!items.length)return openSheet(`<h2>Couldn't find food</h2>${img?`<img class="preview" src="${img}">`:''}<p class="sub">${esc(out.notes||'Try a clearer photo, or just describe what you ate.')}</p><button class="btn" onclick="describeSheet()">✍️ Describe it</button><button class="btn ghost" style="margin-top:12px" onclick="startPhotoScan()">Try another photo</button>`);
+  items=items.map(it=>({name:it.name,grams:Math.max(1,it.grams),base:it.grams,k100:Math.max(0,it.kcal_per_100g),p100:Math.max(0,it.protein_per_100g),c100:Math.max(0,it.carbs_per_100g),f100:Math.max(0,it.fat_per_100g),conf:it.confidence,src:img?'ai':'text'}));
+  EDIT=append?[...EDIT,...items]:items;
+  openSheet(editSheet(fix?'✅ Fixed':'🍽️ Here\'s what I see',`AI estimates. Drag a slider if a portion looks off. Wrong item? Tap <b>Fix it</b>.${out.notes?' <span class="faint">'+esc(out.notes)+'</span>':''}`,LAST.img,true));renderEdit()}
+ catch(e){openSheet(`<h2>Scan failed</h2><p class="sub">${esc(e.message)}</p>${/key|API_KEY|permission|403|400/i.test(e.message)?'<p class="sub">Check your API key in Settings.</p>':''}<button class="btn" onclick="${img?'startPhotoScan()':'describeSheet()'}">Try again</button><button class="btn ghost" style="margin-top:12px" onclick="openSettings()">Open settings</button>`)}}
+async function analyzePhoto(file){let img;try{img=await shrink(file)}catch(e){return toast('Could not read that photo')}LAST.img=img;LAST.text='';aiFood({img})}
+function fixSheet(){openSheet(`<h2>✏️ Fix it</h2><p class="sub">Tell the AI what's wrong and it will redo the scan.</p>
+ <textarea class="inp" id="fixIn" rows="3" style="resize:none;margin-bottom:10px" placeholder="e.g. it's turkey not chicken, and there was ranch dressing"></textarea>
+ <div class="chips" style="margin-bottom:14px">${['Portion is bigger','Portion is smaller','It was fried','No sauce or oil','It\'s a diet drink'].map(x=>`<button class="chip" onclick="$('#fixIn').value+=($('#fixIn').value?', ':'')+'${x.replace("'","\\'")}'">${x}</button>`).join('')}</div>
+ <button class="btn" onclick="const v=$('#fixIn').value.trim();if(!v)return toast('Say what to fix');aiFood({img:LAST.img,text:LAST.text,fix:v})">Fix it</button>`)}
+function addItemSheet(){openSheet(`<h2>+ Add item</h2><p class="sub">What else was there?</p>
+ <input class="inp" id="addIn" placeholder="e.g. a glass of orange juice" style="margin-bottom:14px" autocomplete="off">
+ <button class="btn" onclick="const v=$('#addIn').value.trim();if(!v)return toast('Type an item');aiFood({text:v,append:true})">Add</button>`)}
+function editSheet(title,sub,img,ai){return `<h2>${title}</h2><p class="sub">${sub}</p>${img?`<img class="preview" src="${img}">`:''}<div id="editList"></div>
+ ${ai?`<div class="row" style="margin-bottom:14px"><button class="btn ghost sm" onclick="fixSheet()">✏️ Fix it</button><button class="btn ghost sm" onclick="addItemSheet()">+ Add item</button></div>`:''}
+ <button class="btn" id="editTotal" onclick="commitEdit()">Add</button><button class="btn ghost" style="margin-top:12px" onclick="closeSheet()">Cancel</button>`}
 function aiKeyForm(){return `<div class="card" style="background:var(--card2)"><div class="steps">
   <div class="step"><div><b>Open Google AI Studio</b><p><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--p3)">aistudio.google.com/apikey</a> and sign in with Google.</p></div></div>
   <div class="step"><div><b>Create API key</b><p>Tap "Create API key", then copy it.</p></div></div>
@@ -811,7 +847,7 @@ function saveProduct(){const g=+$('#pfS').value,k=+$('#pfK').value;if(!(g>0)||!(
 function searchSheet(){openSheet(`<h2>Add food</h2><p class="sub">Search ${DB.length} common foods, or add calories manually.</p>
  <input class="inp" id="dbq" placeholder="Search e.g. chicken, rice, banana" autocomplete="off" style="margin-bottom:12px">
  <div class="card" style="padding:4px 14px" id="dbList"></div>
- <div class="row" style="margin:4px 0 6px"><button class="btn ghost sm" onclick="labelScan('')">📷 Read a label</button><button class="btn ghost sm" onclick="startBarcode()">▥ Barcode</button></div>
+ <div class="row" style="margin:4px 0 6px"><button class="btn ghost sm" onclick="describeSheet($('#dbq').value)">✍️ Describe</button><button class="btn ghost sm" onclick="labelScan('')">📷 Label</button><button class="btn ghost sm" onclick="startBarcode()">▥ Barcode</button></div>
  <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Quick add</h2></div>
  <div class="row"><input class="inp" id="qaK" type="number" inputmode="numeric" placeholder="kcal"><input class="inp" id="qaP" type="number" inputmode="numeric" placeholder="protein g"></div>
  <button class="btn ghost" style="margin-top:10px" onclick="quickAdd()">Add calories</button>`);
@@ -1104,109 +1140,191 @@ function rotTo(d){const up=[0,1,0];const c=V3.dot(up,d);if(c>.9999)return [1,0,0
  const ax=V3.norm(V3.cross(up,d)),s=Math.sqrt(1-c*c),t=1-c,[x,y,z]=ax;
  return [t*x*x+c,t*x*y-s*z,t*x*z+s*y, t*x*y+s*z,t*y*y+c,t*y*z-s*x, t*x*z-s*y,t*y*z+s*x,t*z*z+c]}
 const mv=(R,v)=>[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
-// lathe: profile [[r,y]...] bottom->top; emits triangles into layer {p:[],n:[]}
+// lathe: profile [[r,y]...] bottom->top; emits triangles into layer {p,n,(c)}
+let PAINT=[1,1,1];
 function lathe(L,prof,segs,place){const N=prof.length,ring=[],nr=[];
  for(let i=0;i<N;i++){const a=prof[Math.max(0,i-1)],b=prof[Math.min(N-1,i+1)];const dr=b[0]-a[0],dy=b[1]-a[1];const l=Math.hypot(dr,dy)||1;nr.push([dy/l,-dr/l])}
  for(let i=0;i<N;i++){const row=[];for(let j=0;j<=segs;j++){const t=j/segs*Math.PI*2,c=Math.cos(t),s=Math.sin(t);
   row.push(place([prof[i][0]*c,prof[i][1],prof[i][0]*s],[nr[i][0]*c,nr[i][1],nr[i][0]*s]))}ring.push(row)}
+ const pc=L.c,P0=PAINT[0],P1=PAINT[1],P2=PAINT[2];
  for(let i=0;i<N-1;i++)for(let j=0;j<segs;j++){const a=ring[i][j],b=ring[i+1][j],c=ring[i+1][j+1],d=ring[i][j+1];
-  for(const v of [a,c,b,a,d,c]){L.p.push(v[0][0],v[0][1],v[0][2]);L.n.push(v[1][0],v[1][1],v[1][2])}}}
-function capsule(L,a,b,r1,r2,o={}){const d=V3.sub(b,a),len=V3.len(d),R=rotTo(V3.norm(d)),sz=o.sz||1,sx=o.sx||1,seg=o.seg||14,hs=o.hs||4,prof=[];
+  for(const v of [a,c,b,a,d,c]){L.p.push(v[0][0],v[0][1],v[0][2]);L.n.push(v[1][0],v[1][1],v[1][2]);if(pc)pc.push(P0,P1,P2)}}}
+function capsule(L,a,b,r1,r2,o={}){const d=V3.sub(b,a),len=V3.len(d)||1e-4,R=rotTo(V3.norm(d)),sz=o.sz||1,sx=o.sx||1,seg=o.seg||14,hs=o.hs||4,prof=[];
  for(let k=0;k<=hs;k++){const t=-Math.PI/2+k/hs*Math.PI/2;prof.push([r1*Math.cos(t),r1*Math.sin(t)])}
  for(let k=0;k<=hs;k++){const t=k/hs*Math.PI/2;prof.push([r2*Math.cos(t),len+r2*Math.sin(t)])}
  lathe(L,prof,seg,(p,n)=>{const q=mv(R,[p[0]*sx,p[1],p[2]*sz]),m=V3.norm(mv(R,[n[0]/sx,n[1],n[2]/sz]));return [[q[0]+a[0],q[1]+a[1],q[2]+a[2]],m]})}
-function ellip(L,c,rx,ry,rz,seg=16,rot){const prof=[];const st=10;for(let k=0;k<=st;k++){const t=-Math.PI/2+k/st*Math.PI;prof.push([Math.cos(t),Math.sin(t)])}
+function ellip(L,c,rx,ry,rz,seg=16,rot,st=10){const prof=[];for(let k=0;k<=st;k++){const t=-Math.PI/2+k/st*Math.PI;prof.push([Math.cos(t),Math.sin(t)])}
  lathe(L,prof,seg,(p,n)=>{let q=[p[0]*rx,p[1]*ry,p[2]*rz],m=[n[0]/rx,n[1]/ry,n[2]/rz];if(rot){q=mv(rot,q);m=mv(rot,m)}return [[q[0]+c[0],q[1]+c[1],q[2]+c[2]],V3.norm(m)]})}
+// ellipsoid with explicit axes (ax,ay,az unit vectors)
+function ellipB(L,c,ax,ay,az,rx,ry,rz,seg=14,st=9){const prof=[];for(let k=0;k<=st;k++){const t=-Math.PI/2+k/st*Math.PI;prof.push([Math.cos(t),Math.sin(t)])}
+ lathe(L,prof,seg,(p,n)=>{const q=[0,1,2].map(i=>c[i]+ax[i]*p[0]*rx+ay[i]*p[1]*ry+az[i]*p[2]*rz),m=[0,1,2].map(i=>ax[i]*n[0]/rx+ay[i]*n[1]/ry+az[i]*n[2]/rz);return [q,V3.norm(m)]})}
+function chain(L,pts,r,o={}){for(let i=0;i<pts.length-1;i++){const r1=Array.isArray(r)?r[i]:r,r2=Array.isArray(r)?r[i+1]:r;capsule(L,pts[i],pts[i+1],r1,r2,{seg:o.seg||8,hs:o.hs||2,sx:o.sx,sz:o.sz})}}
+function torus(L,c,R,r,seg=48){const prof=[];for(let k=0;k<=10;k++){const a=-Math.PI/2+k/10*Math.PI*2;prof.push([R+r*Math.cos(a),r*Math.sin(a)])}
+ lathe(L,prof,seg,(p,n)=>[[p[0]+c[0],p[1]+c[1],p[2]+c[2]],V3.norm(n)])}
 function torso(L,prof,depth,belly){lathe(L,prof,28,(p,n)=>{const front=p[2]>0?1:0;const dz=depth+(front?belly*Math.max(0,1-Math.abs(p[1]-1.07)/.16):0);
  return [[p[0],p[1],p[2]*dz],V3.norm([n[0],n[1],n[2]/dz])]})}
 const mirror=f=>{f(1);f(-1)};
-function buildBody(m,f,female){const B={p:[],n:[]},M={p:[],n:[]},S={p:[],n:[]};
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+
+/* ---------- anatomical skeleton ---------- */
+const BONE=[1,1,1],CART=[.8,.86,.92],DARK=[.06,.045,.05],TOOTH=[1.08,1.07,1.02],SHADE=[.86,.82,.76];
+function spineZ(y){if(y<1.15)return -.035+.022*Math.sin(Math.PI*Math.max(0,y-.95)/.2);if(y<1.45)return -.035-.03*Math.sin(Math.PI*(y-1.15)/.3);return -.035+.028*Math.sin(Math.PI*Math.min(1,(y-1.45)/.26))}
+function buildSkeleton(B,sw,female,m){PAINT=BONE;const pw=female?1.14:1;
+ /* --- skull --- */
+ ellip(B,[0,1.697,-.012],.073,.086,.097,22,null,12);                       // cranium
+ ellip(B,[0,1.69,.028],.067,.072,.072,20,null,10);                         // frontal
+ mirror(s=>{ellip(B,[s*.058,1.665,-.005],.022,.035,.045,12);               // temporal
+  ellipB(B,[s*.03,1.676,.083],[1,0,0],[0,1,0],[0,0,1],.026,.008,.011,10,6); // brow ridge
+  ellip(B,[s*.049,1.637,.058],.019,.016,.028,10);                          // cheekbone
+  capsule(B,[s*.056,1.636,.045],[s*.066,1.633,-.006],.0075,.0065,{seg:8,hs:2}); // zygomatic arch
+  ellip(B,[s*.05,1.612,-.03],.012,.018,.014,8)});                          // mastoid
+ ellip(B,[0,1.612,.052],.044,.028,.04,16);                                  // maxilla
+ ellipB(B,[0,1.652,.086],[1,0,0],[0,.94,.34],[0,-.34,.94],.009,.018,.008,8,6); // nasal bones
+ mirror(s=>{chain(B,[[s*.058,1.64,-.012],[s*.056,1.6,-.008],[s*.05,1.574,.006],[s*.036,1.562,.045],[s*.016,1.558,.068],[0,1.558,.073]],[.011,.012,.013,.012,.011,.011],{seg:10})});
+ ellip(B,[0,1.561,.071],.022,.014,.012,12);                                 // chin
+ PAINT=DARK;mirror(s=>ellip(B,[s*.03,1.663,.075],.0195,.017,.018,14));     // eye sockets
+ ellipB(B,[0,1.632,.085],[1,0,0],[0,1,0],[0,0,1],.0105,.016,.011,10,7);    // nasal cavity
+ ellip(B,[0,1.592,.058],.03,.004,.03,14);                                   // mouth gap
+ PAINT=TOOTH;for(const [yy,zo] of [[1.598,0],[1.585,-.003]])for(let k=0;k<14;k++){const ph=-1.25+k/13*2.5,x=.03*Math.sin(ph),z=.046+zo+.034*Math.cos(ph);ellip(B,[x,yy,z],.0045,.0065,.0045,6,null,5)}
+ PAINT=BONE;
+ /* --- spine --- */
+ const verts=[];for(let i=0;i<5;i++)verts.push([1.0+i*.033,'L']);for(let i=0;i<12;i++)verts.push([1.165+i*.0245,'T']);for(let i=0;i<7;i++)verts.push([1.462+i*.0185,'C']);
+ for(const [y,t] of verts){const z=spineZ(y),r=t==='L'?.021:t==='T'?.016:.012;
+  ellip(B,[0,y,z],r,t==='L'?.012:t==='T'?.009:.007,r*.85,10,null,6);                               // body
+  PAINT=CART;ellip(B,[0,y+(t==='L'?.0165:t==='T'?.012:.009),z],r*.9,.0035,r*.8,10,null,4);PAINT=BONE;  // disc
+  const sp=t==='L'?[0,y-.004,z-.048]:t==='T'?[0,y-.022,z-.045]:[0,y-.006,z-.032];capsule(B,[0,y,z-r*.7],sp,.0055,.004,{seg:6,hs:2});
+  mirror(s=>capsule(B,[s*r*.6,y,z-r*.5],[s*(t==='L'?.036:t==='T'?.03:.022),y+(t==='T'?.004:0),z-(t==='T'?.022:.012)],.004,.0035,{seg:6,hs:2}))}
+ ellipB(B,[0,.955,-.05],[1,0,0],[0,.88,-.47],[0,.47,.88],.045,.055,.014,12,8);                 // sacrum
+ chain(B,[[0,.905,-.05],[0,.89,-.042],[0,.878,-.03]],[.008,.006,.004]);                          // coccyx
+ /* --- ribcage --- */
+ const zS=.083,stTop=1.405,stBot=1.225;
+ PAINT=BONE;ellip(B,[0,1.392,zS],.026,.022,.008,12);capsule(B,[0,1.37,zS+.003],[0,stBot+.012,zS+.006],.013,.012,{sx:1.5,sz:.55,seg:10});ellip(B,[0,stBot-.008,zS+.004],.007,.014,.004,8);
+ for(let i=1;i<=12;i++){const y0=1.43-(i-1)*.0235,z0=spineZ(y0),wid=(.06+.068*Math.sin(Math.min(1,(i+.5)/8.5)*Math.PI/2)-(i>9?.012*(i-9):0))*Math.min(m,1.1)*(female?.93:1),dep=.055+.04*Math.sin(Math.min(1,i/7)*Math.PI/2);
+  const span=i<=10?.88:.5+.08*(12-i),drop=.04+.011*i,zc=z0+dep+.012;
+  mirror(s=>{const pts=[];for(let k=0;k<=12;k++){const t=k/12,th=-Math.PI/2+t*Math.PI*span;
+    pts.push([s*(.022+wid*Math.cos(th)),y0-drop*Math.pow(t,.85),zc+dep*Math.sin(th)])}
+   PAINT=BONE;chain(B,pts,.0058,{seg:6,hs:1,sx:1.35});
+   if(i<=10){const end=pts[pts.length-1];const sy=i<=7?stTop-.012-(i-1)*.026:stBot+.004+(10-i)*.01;const tgt=i<=7?[s*.014,sy,zS+.004]:[s*(.02+.012*(i-7)),sy-(i-7)*.006,zS-.004];
+    PAINT=CART;chain(B,[end,lerp3(end,tgt,.5).map((v,ix)=>ix===1?v+.01:v),tgt],.0052,{seg:6,hs:1});PAINT=BONE}})}
+ /* --- shoulder girdle & arms --- */
+ const sh=s=>[s*(sw-.012),1.418,-.008],el=s=>[s*(sw+.028),1.148,-.018],wr=s=>[s*(sw+.044),.888,.018];
+ mirror(s=>{chain(B,[[s*.018,1.414,zS-.002],[s*.06,1.428,.07],[s*.11,1.438,.035],[s*(sw-.03),1.445,-.002],[s*(sw-.006),1.444,-.018]],[.0085,.009,.0085,.008,.009]); // clavicle
+  const sc=[s*(sw*.55),1.33,-.098];PAINT=SHADE;ellipB(B,sc,V3.norm([s*.94,.15,.3]),V3.norm([-s*.12,.99,.03]),V3.norm([-s*.32,0,.95]),.045,.068,.005,12,8);PAINT=BONE;chain(B,[[s*sw*.3,1.385,-.103],[s*sw*.36,1.27,-.1],[s*(sw*.75),1.34,-.085],[s*sw*.3,1.385,-.103]],.0045,{seg:6,hs:1}); // scapula + border
+  capsule(B,[s*sw*.32,1.372,-.104],[s*(sw-.01),1.44,-.03],.006,.008,{seg:6,hs:2});            // spine of scapula
+  ellip(B,[s*(sw-.03),1.41,-.03],.012,.018,.012,8);                                              // glenoid
+  const H=sh(s),E=el(s),W=wr(s);ellip(B,H,.024,.024,.024,14);capsule(B,lerp3(H,E,.08),lerp3(H,E,.9),.0125,.011,{seg:10,hs:3}); // humerus
+  ellipB(B,E,[1,0,0],[0,1,0],[0,0,1],.03,.014,.018,12,7);
+  capsule(B,[E[0]+s*.006,E[1]+.022,E[2]-.02],[W[0]-s*.002,W[1]+.004,W[2]-.01],.011,.006,{seg:8,hs:2});     // ulna
+  capsule(B,[E[0]-s*.008,E[1]-.008,E[2]+.004],[W[0]-s*.012,W[1],W[2]+.01],.007,.011,{seg:8,hs:2});         // radius
+  // hand (palm facing thigh, fingers down)
+  const hx=W[0]-s*.004;for(let r=0;r<2;r++)for(let k=0;k<4;k++)ellip(B,[hx,W[1]-.014-r*.013,W[2]+.026-k*.016],.007,.0065,.0072,7,null,5);
+  const fz=[.024,.008,-.008,-.022],fl=[1,1.1,1.03,.84];
+  for(let k=0;k<4;k++){const z=W[2]+fz[k],L=fl[k];let p=[hx,W[1]-.034,W[2]+fz[k]*.7];const seq=[[hx,p[1]-.058*L,z],[hx,p[1]-.058*L-.034*L,z+.002],[hx,p[1]-.058*L-.034*L-.021*L,z+.003],[hx,p[1]-.058*L-.034*L-.021*L-.016*L,z+.003]];
+   chain(B,[p,...seq],[.0048,.0042,.0038,.0033,.0028],{seg:6,hs:2})}
+  chain(B,[[hx+s*.004,W[1]-.02,W[2]+.03],[hx+s*.0,W[1]-.045,W[2]+.05],[hx-s*.004,W[1]-.075,W[2]+.06],[hx-s*.006,W[1]-.098,W[2]+.064]],[.0055,.0048,.0042,.0034],{seg:6,hs:2}) // thumb
+ });
+ /* --- pelvis --- */
+ const hp=s=>[s*.08*pw,.905,.0];
+ mirror(s=>{PAINT=SHADE;ellipB(B,[s*.075*pw,.995,-.03],V3.norm([s*.6,.05,.8]),V3.norm([-s*.1,.98,.12]),V3.norm([-s*.8,-.05,.6]),.05*pw,.05,.006,12,8);
+  ellipB(B,[s*.11*pw,1.0,.005],V3.norm([s*.25,.05,.97]),V3.norm([0,.98,.15]),V3.norm([-s*.97,0,.25]),.04,.048,.006,12,8);PAINT=BONE;  // iliac wing (curved bowl)
+  chain(B,[[s*.035,1.0,-.07],[s*.085*pw,1.045,-.06],[s*.125*pw,1.04,-.015],[s*.12*pw,1.02,.035],[s*.1*pw,.985,.05]],.0075,{seg:6,hs:2});                     // iliac crest
+  const A=hp(s);ellip(B,A,.03,.03,.03,12);                                                                                                                     // acetabulum
+  chain(B,[A,[s*.05*pw,.875,.055],[s*.012,.868,.062]],.009,{seg:8});                                                                                          // pubic ramus
+  chain(B,[A,[s*.07*pw,.845,-.012],[s*.05*pw,.828,-.005],[s*.035*pw,.84,.035],[s*.012,.852,.06]],[.012,.014,.012,.009,.009],{seg:8});                        // ischium
+  ellip(B,[s*.008,.86,.062],.009,.02,.01,8);                                                                                                                   // symphysis
+  chain(B,[[s*.03,.99,-.055],[s*.062*pw,.94,-.03],A],.008,{seg:6,hs:2})});
+ /* --- legs --- */
+ mirror(s=>{const A=hp(s),K=[s*.092,.508,.004],An=[s*.096,.088,-.004];
+  ellip(B,A,.024,.024,.024,14);capsule(B,A,[s*.118*pw,.886,-.006],.014,.017,{seg:8,hs:2});ellip(B,[s*.12*pw,.89,-.01],.02,.026,.022,10);                     // femur head/neck/trochanter
+  capsule(B,[s*.112*pw,.87,-.004],[K[0],K[1]+.03,K[2]],.0155,.014,{seg:10,hs:3});ellipB(B,[K[0],K[1]+.012,K[2]-.002],[1,0,0],[0,1,0],[0,0,1],.04,.022,.031,12,7); // femur shaft + condyles
+  ellip(B,[K[0],K[1]+.004,K[2]+.042],.019,.024,.01,10);                                                                                                         // patella
+  ellipB(B,[K[0],K[1]-.026,K[2]],[1,0,0],[0,1,0],[0,0,1],.038,.013,.03,12,7);capsule(B,[K[0]-s*.002,K[1]-.03,K[2]+.006],[An[0]-s*.006,An[1]+.022,An[2]],.0145,.011,{seg:10,hs:3}); // tibia
+  capsule(B,[K[0]+s*.026,K[1]-.04,K[2]-.012],[An[0]+s*.02,An[1]+.006,An[2]-.01],.0065,.006,{seg:6,hs:2});ellip(B,[An[0]+s*.021,An[1]+.002,An[2]-.008],.008,.013,.009,8); // fibula
+  ellip(B,[An[0]-s*.016,An[1]+.006,An[2]],.008,.012,.009,8);                                                                                                    // medial malleolus
+  // foot
+  ellip(B,[An[0],.068,.004],.016,.014,.022,10);ellipB(B,[An[0]+s*.004,.034,-.034],[1,0,0],[0,.9,.44],[0,-.44,.9],.019,.026,.032,10,7);                       // talus, calcaneus
+  for(let k=0;k<5;k++){const x0=An[0]-s*.014+s*k*.008,x1=An[0]-s*.024+s*k*.013;ellip(B,[x0,.048,.032],.0075,.008,.012,7,null,5);
+   const L=k===0?1.08:1-.05*k,m0=[x0,.044,.042],m1=[x1,.017,.042+.058*L];chain(B,[m0,m1],[k===0?.0065:.0048,k===0?.0062:.0042],{seg:6,hs:2});
+   const ph=k===0?[[x1-s*.001,.013,m1[2]+.024],[x1-s*.001,.011,m1[2]+.044]]:[[x1+s*.001,.012,m1[2]+.016],[x1+s*.002,.01,m1[2]+.027],[x1+s*.002,.009,m1[2]+.035]];
+   chain(B,[m1,...ph],k===0?[.006,.0055,.005]:[.0038,.0034,.003,.0026],{seg:6,hs:2})}});
+ PAINT=[1,1,1]}
+
+function buildBody(m,f,female){const B={p:[],n:[],c:[]},M={p:[],n:[]},S={p:[],n:[]},G={p:[],n:[]};
  const sw=(female?.165:.19)*Math.min(m,1.18),hipR=female?.172:.152,waistR=female?.122:.134,chestR=(female?.152:.168)*m;
- // ---- torso profiles
  const tp=(add)=>[[0,.86],[hipR*.7+add(.9),.88],[hipR+add(1.2),.93],[(hipR+waistR)/2+add(1.4),1.0],[waistR+add(1.6),1.08],[waistR*1.07+add(1.3),1.17],[chestR*.94+add(.9),1.26],[chestR+add(.8),1.34],[chestR*.97*Math.min(m,1.15)+add(.6),1.41],[chestR*.72+add(.5),1.47],[.06+add(.3),1.51],[0,1.52]];
  torso(M,tp(()=>0),.6,0);torso(S,tp(k=>f*k+.008),.62+f*.6,f*2.2);
- // head & neck
  for(const [L,a] of [[M,0],[S,.008]]){ellip(L,[0,1.665,0],.093+a,.113+a,.104+a,20);capsule(L,[0,1.47,0],[0,1.6,.005],.052*Math.min(m,1.15)+a+f*.3,.045+a)}
- // muscle detail
- mirror(s=>{ellip(M,[s*.072,1.355,.075*m],.072*m,.052*m,.032*m,14);                                 // pecs
-  ellip(M,[s*sw,1.435,0],.062*m,.058*m,.06*m,14);                                                        // delts
-  ellip(M,[s*.13,1.27,-.03],.045*m,.11,.065*m,12);                                                       // lats
-  ellip(M,[s*.065,1.47,-.03],.07*m,.035*m,.04,12);                                                       // traps
-  ellip(M,[s*.07,.9,-.075],.075*m,.075,.055*m,12);                                                       // glutes
-  for(let r=0;r<3;r++)ellip(M,[s*.032,1.23-r*.065,.073],.028,.026,.014+.004*m,10)});                    // abs
- // limbs
+ mirror(s=>{ellip(M,[s*.072,1.355,.075*m],.072*m,.052*m,.032*m,14);ellip(M,[s*sw,1.435,0],.062*m,.058*m,.06*m,14);ellip(M,[s*.13,1.27,-.03],.045*m,.11,.065*m,12);
+  ellip(M,[s*.065,1.47,-.03],.07*m,.035*m,.04,12);ellip(M,[s*.07,.9,-.075],.075*m,.075,.055*m,12);for(let r=0;r<3;r++)ellip(M,[s*.032,1.23-r*.065,.073],.028,.026,.014+.004*m,10)});
  const arm=s=>{const Sh=[s*sw,1.43,0],E=[s*(sw+.035),1.155,-.01],Wr=[s*(sw+.05),.9,.025],H=[s*(sw+.055),.83,.03];return {Sh,E,Wr,H}};
  const leg=s=>{const Hp=[s*.088,.9,0],K=[s*.097,.5,.012],A=[s*.098,.09,-.01];return {Hp,K,A}};
  mirror(s=>{const {Sh,E,Wr,H}=arm(s),{Hp,K,A}=leg(s);
   capsule(M,Sh,E,.046*m,.036*m);capsule(M,E,Wr,.04*m,.026);ellip(M,H,.026,.048,.014,10);
-  ellip(M,[s*(sw+.02),1.29,.028],.038*m,.068,.036*m,12);ellip(M,[s*(sw+.025),1.28,-.03],.036*m,.072,.034*m,12); // biceps/triceps
+  ellip(M,[s*(sw+.02),1.29,.028],.038*m,.068,.036*m,12);ellip(M,[s*(sw+.025),1.28,-.03],.036*m,.072,.034*m,12);
   capsule(M,Hp,K,.088*Math.min(m,1.2),.054*m);capsule(M,K,A,.05*m,.03);ellip(M,[s*.098,.36,-.03],.046*m,.085,.046*m,12);ellip(M,[s*.097,.72,.04],.06*m,.13,.05*m,12);
   ellip(M,[s*.098,.04,.035],.038,.03,.095,12);
   capsule(S,Sh,E,.05*m+f*.5+.008,.04*m+f*.35+.008);capsule(S,E,Wr,.043*m+f*.2+.008,.03+.008);ellip(S,H,.03,.052,.018,10);
   ellip(S,[s*(sw+.022),1.285,0],.048*m+f*.5,.08,.05*m+f*.5,12);
   capsule(S,Hp,K,.095*Math.min(m,1.2)+f*1.2+.008,.058*m+f*.5+.008);capsule(S,K,A,.054*m+f*.4+.008,.034+.008);ellip(S,[s*.098,.04,.035],.042,.034,.1,12)});
- // ---- skeleton
- ellip(B,[0,1.675,-.005],.08,.095,.092,18);ellip(B,[0,1.6,.035],.05,.03,.045,12);
- mirror(s=>{ellip(B,[s*.03,1.68,.075],.018,.016,.01,8)});
- for(let i=0;i<24;i++){const y=.95+i*.025,z=-.045-.012*Math.sin((y-.95)/.6*Math.PI*1.4);ellip(B,[0,y,z],.019,.009,.017,8)}
- for(let r=0;r<9;r++){const y=1.41-r*.032,rx=(female?.1:.11)*(.82+.18*Math.sin((r+1)/10*Math.PI))*Math.min(m,1.1),rz=.075;
-  mirror(s=>{let prev=null;for(let k=0;k<=12;k++){const t=-Math.PI/2+k/12*(Math.PI*.92);const pt=[s*rx*Math.cos(t),y-.035*Math.sin(k/12*Math.PI*.6)*.6,-.03+rz*Math.sin(t)];
-   if(prev)capsule(B,prev,pt,.0065,.0065,{seg:6,hs:1});prev=pt}})}
- capsule(B,[0,1.2,.07],[0,1.43,.06],.012,.012,{sx:1.6,seg:8});
- mirror(s=>{const {Sh,E,Wr,H}=arm(s),{Hp,K,A}=leg(s);
-  capsule(B,[s*.02,1.465,.05],[s*(sw-.02),1.455,.0],.01,.01,{seg:8});ellip(B,[s*(sw*.62),1.37,-.075],.05,.06,.012,10);
-  ellip(B,Sh,.024,.024,.024,10);capsule(B,Sh,E,.015,.013,{seg:8});ellip(B,E,.018,.018,.018,8);
-  capsule(B,E,Wr,.009,.009,{seg:6});capsule(B,[E[0]-s*.012,E[1],E[2]-.01],[Wr[0]-s*.012,Wr[1],Wr[2]-.005],.008,.008,{seg:6});
-  for(let k=0;k<4;k++)capsule(B,[H[0]-s*.012+s*k*.009,H[1]+.03,H[2]],[H[0]-s*.014+s*k*.011,H[1]-.04,H[2]+.005],.0045,.004,{seg:5,hs:1});
-  ellip(B,[s*.075,.99,-.015],.07,.055,.028,12,rotTo(V3.norm([s*.5,1,.4])));ellip(B,Hp,.024,.024,.024,10);
-  capsule(B,Hp,K,.019,.016,{seg:8});ellip(B,[K[0],K[1],K[2]+.035],.02,.022,.012,8);ellip(B,K,.024,.02,.022,8);
-  capsule(B,K,A,.015,.012,{seg:8});capsule(B,[K[0]+s*.022,K[1]-.02,K[2]-.01],[A[0]+s*.02,A[1]+.02,A[2]-.005],.007,.007,{seg:6});
-  ellip(B,[A[0],.04,.03],.03,.018,.085,10)});
- ellip(B,[0,.92,-.03],.05,.05,.03,10);
- return {B,M,S}}
+ buildSkeleton(B,sw,female,m);
+ torus(G,[0,.002,0],.33,.004,64);torus(G,[0,.002,0],.27,.0025,64);torus(G,[0,.002,0],.4,.0018,64);
+ return {B,M,S,G}}
 
 let GL=null;
 function initGL(canvas){const gl=canvas.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:false});if(!gl)return null;
- const vs=`attribute vec3 aP;attribute vec3 aN;uniform mat4 uVP;uniform float uRot;varying vec3 vN;varying vec3 vW;
- void main(){float c=cos(uRot),s=sin(uRot);vec3 p=vec3(c*aP.x+s*aP.z,aP.y,-s*aP.x+c*aP.z);vN=vec3(c*aN.x+s*aN.z,aN.y,-s*aN.x+c*aN.z);vW=p;gl_Position=uVP*vec4(p,1.0);}`;
- const fs=`precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec3 uC;uniform float uA;uniform float uRim;uniform float uScan;uniform vec3 uCam;
- void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);float d=max(dot(N,normalize(vec3(.4,.8,.6))),0.)*.65+max(dot(N,normalize(vec3(-.6,.2,-.4))),0.)*.2+.28;
- float r=pow(1.-max(dot(N,V),0.),2.2);float band=smoothstep(.035,0.,abs(vW.y-uScan));
- vec3 col=uC*d+uC*r*uRim*1.4+vec3(band)*.9*uC+band*.25;gl_FragColor=vec4(col,clamp(uA+r*uRim*.55+band*.35,0.,1.));}`;
- const sh=(t,src)=>{const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);return s};
+ const vs=`attribute vec3 aP;attribute vec3 aN;attribute vec3 aC;uniform mat4 uVP;uniform float uRot;uniform float uPitch;varying vec3 vN;varying vec3 vW;varying vec3 vC;
+ vec3 rx(vec3 v,float ox){float c=cos(uPitch),s=sin(uPitch);v.y-=ox;return vec3(v.x,c*v.y-s*v.z+ox,s*v.y+c*v.z);}
+ void main(){float c=cos(uRot),s=sin(uRot);vec3 p=vec3(c*aP.x+s*aP.z,aP.y,-s*aP.x+c*aP.z);vec3 n=vec3(c*aN.x+s*aN.z,aN.y,-s*aN.x+c*aN.z);
+ p=rx(p,.9);n=rx(n,0.);vN=n;vW=p;vC=aC;gl_Position=uVP*vec4(p,1.0);}`;
+ const fs=`precision mediump float;varying vec3 vN;varying vec3 vW;varying vec3 vC;uniform vec3 uC;uniform float uA;uniform float uRim;uniform float uScan;uniform vec3 uCam;uniform float uSpec;
+ void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);vec3 L1=normalize(vec3(.45,.75,.65));
+ float wrap=(dot(N,L1)+.35)/1.35;float d=max(wrap,0.)*.66+max(dot(N,normalize(vec3(-.7,.15,-.4))),0.)*.2+max(dot(N,normalize(vec3(0.,.2,1.))),0.)*.14+.26;
+ float sp=pow(max(dot(reflect(-L1,N),V),0.),26.)*uSpec;float ao=mix(.84,1.,smoothstep(-.4,.6,N.y*.4+dot(N,V)*.6));
+ float r=pow(1.-max(dot(N,V),0.),2.2);float band=smoothstep(.035,0.,abs(vW.y-uScan));vec3 base=uC*vC;
+ vec3 col=base*d*ao+vec3(sp)+base*r*uRim*1.4+vec3(band)*.9*uC+band*.25;gl_FragColor=vec4(col,clamp(uA+r*uRim*.55+band*.35,0.,1.));}`;
+ const sh=(t,src)=>{const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s};
  const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);gl.useProgram(pr);
- const u={};['uVP','uRot','uC','uA','uRim','uScan','uCam'].forEach(n=>u[n]=gl.getUniformLocation(pr,n));
- return {gl,pr,u,aP:gl.getAttribLocation(pr,'aP'),aN:gl.getAttribLocation(pr,'aN'),layers:{}}}
-function upload(G,name,L){const gl=G.gl;const mk=a=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(a),gl.STATIC_DRAW);return b};
- const old=G.layers[name];if(old){gl.deleteBuffer(old.p);gl.deleteBuffer(old.n)}G.layers[name]={p:mk(L.p),n:mk(L.n),count:L.p.length/3}}
+ const u={};['uVP','uRot','uPitch','uC','uA','uRim','uScan','uCam','uSpec'].forEach(n=>u[n]=gl.getUniformLocation(pr,n));
+ return {gl,pr,u,aP:gl.getAttribLocation(pr,'aP'),aN:gl.getAttribLocation(pr,'aN'),aC:gl.getAttribLocation(pr,'aC'),layers:{}}}
+function upload(G,name,L){const gl=G.gl;const mk=a=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,a instanceof Float32Array?a:new Float32Array(a),gl.STATIC_DRAW);return b};
+ const old=G.layers[name];if(old){gl.deleteBuffer(old.p);gl.deleteBuffer(old.n);if(old.c)gl.deleteBuffer(old.c)}
+ G.layers[name]={p:mk(L.p),n:mk(L.n),c:L.c?mk(L.c):null,count:L.p.length/3}}
 function persp(f,a,n,fa){const t=1/Math.tan(f/2);return [t/a,0,0,0,0,t,0,0,0,0,(fa+n)/(n-fa),-1,0,0,2*fa*n/(n-fa),0]}
 function lookAt(e,c){const z=V3.norm(V3.sub(e,c)),x=V3.norm(V3.cross([0,1,0],z)),y=V3.cross(z,x);return [x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-V3.dot(x,e),-V3.dot(y,e),-V3.dot(z,e),1]}
 function mmul(a,b){const o=new Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s}return o}
-const MODES={holo:{B:[.85,0],M:[.5,.55],S:[.045,.75]},muscle:{B:[0,0],M:[1,.3],S:[.035,.6]},skeleton:{B:[1,0],M:[.07,.5],S:[.025,.5]}};
-let bodyMode='holo',rot=.5,cur3={B:.85,M:.5,S:.045},drag=null,lastInt=0,raf3=0,bodyKey='';
+const MODES={holo:{B:[.9,0],M:[.42,.55],S:[.04,.75]},muscle:{B:[0,0],M:[1,.3],S:[.035,.6]},skeleton:{B:[1,0],M:[0,.4],S:[.022,.45]}};
+let bodyMode='holo',rot=.5,pitch=0,zoom=1,cur3={B:.9,M:.42,S:.04},drag=null,lastInt=0,raf3=0,bodyKey='',pinch=null;
 function colorOf(v){const s=getComputedStyle(document.documentElement).getPropertyValue(v).trim();const [r,g,b]=hexToRgb(s.startsWith('#')?s:'#a855f7');return [r/255,g/255,b/255]}
 function startBody3D(stats){const cv=$('#body3d');if(!cv)return;cancelAnimationFrame(raf3);
  const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;
  if(!GL||GL.gl.canvas!==cv){GL=initGL(cv);bodyKey=''}if(!GL){cv.insertAdjacentHTML('afterend','<p class="sub" style="text-align:center">3D isn\'t supported on this device.</p>');return}
- const k=[stats.m.toFixed(3),stats.f.toFixed(3),stats.female].join();if(k!==bodyKey){const b=buildBody(stats.m,stats.f,stats.female);upload(GL,'B',b.B);upload(GL,'M',b.M);upload(GL,'S',b.S);bodyKey=k}
+ const k=[stats.m.toFixed(3),stats.f.toFixed(3),stats.female].join();if(k!==bodyKey){const b=buildBody(stats.m,stats.f,stats.female);for(const n of ['B','M','S','G'])upload(GL,n,b[n]);bodyKey=k}
  const {gl,u}=GL;gl.viewport(0,0,cv.width,cv.height);
- const cam=[0,.95,3.45],VP=mmul(persp(.6,w/h,.1,20),lookAt(cam,[0,.84,0]));
- cv.onpointerdown=e=>{drag={x:e.clientX,r:rot};lastInt=performance.now();cv.setPointerCapture(e.pointerId)};
- cv.onpointermove=e=>{if(drag){rot=drag.r+(e.clientX-drag.x)*.012;lastInt=performance.now()}};
- cv.onpointerup=cv.onpointercancel=()=>{drag=null;lastInt=performance.now()};
- let t0=performance.now();
+ const pts=new Map();
+ cv.onpointerdown=e=>{pts.set(e.pointerId,[e.clientX,e.clientY]);cv.setPointerCapture(e.pointerId);lastInt=performance.now();
+  if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),z:zoom};drag=null}else drag={x:e.clientX,y:e.clientY,r:rot,p:pitch}};
+ cv.onpointermove=e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,[e.clientX,e.clientY]);lastInt=performance.now();
+  if(pinch&&pts.size===2){const [a,b]=[...pts.values()];zoom=Math.max(1,Math.min(3.2,pinch.z*Math.hypot(a[0]-b[0],a[1]-b[1])/pinch.d))}
+  else if(drag){rot=drag.r+(e.clientX-drag.x)*.012;pitch=Math.max(-.45,Math.min(.45,drag.p+(e.clientY-drag.y)*.006))}};
+ cv.onpointerup=cv.onpointercancel=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(!pts.size)drag=null;lastInt=performance.now()};
+ cv.ondblclick=()=>{zoom=zoom>1.2?1:2.4;lastInt=performance.now()};
+ let t0=performance.now(),zc=zoom,fy=.84;
  const frame=now=>{if(!document.body.contains(cv))return;const dt=Math.min(.05,(now-t0)/1000);t0=now;
-  if(!drag&&now-lastInt>1500)rot+=dt*.45;const tg=MODES[bodyMode];for(const L of ['B','M','S'])cur3[L]+=(tg[L][0]-cur3[L])*Math.min(1,dt*6);
+  if(!drag&&!pinch&&now-lastInt>1800){rot+=dt*.4;pitch*=.97}const tg=MODES[bodyMode];for(const L of ['B','M','S'])cur3[L]+=(tg[L][0]-cur3[L])*Math.min(1,dt*6);
+  zc+=(zoom-zc)*Math.min(1,dt*7);const ty=.84+(zc-1)/2.2*.62;fy+=(ty-fy)*Math.min(1,dt*7);
+  const cam=[0,.95+(fy-.84),3.45/zc],VP=mmul(persp(.6,w/h,.05,20),lookAt(cam,[0,fy,0]));
   gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.frontFace(gl.CCW);
-  gl.uniformMatrix4fv(u.uVP,false,new Float32Array(VP));gl.uniform1f(u.uRot,rot);gl.uniform3fv(u.uCam,cam);gl.uniform1f(u.uScan,.05+((now/1000*.32)%1)*1.7);
-  const draw=(L,col,a,rim,additive,write)=>{const ly=GL.layers[L];if(!ly||a<.01)return;gl.bindBuffer(gl.ARRAY_BUFFER,ly.p);gl.enableVertexAttribArray(GL.aP);gl.vertexAttribPointer(GL.aP,3,gl.FLOAT,false,0,0);
+  gl.uniformMatrix4fv(u.uVP,false,new Float32Array(VP));gl.uniform1f(u.uRot,rot);gl.uniform1f(u.uPitch,pitch);gl.uniform3fv(u.uCam,cam);gl.uniform1f(u.uScan,bodyMode==='skeleton'?-5:.05+((now/1000*.32)%1)*1.7);
+  const draw=(L,col,a,rim,additive,write,spec=0)=>{const ly=GL.layers[L];if(!ly||a<.01)return;gl.bindBuffer(gl.ARRAY_BUFFER,ly.p);gl.enableVertexAttribArray(GL.aP);gl.vertexAttribPointer(GL.aP,3,gl.FLOAT,false,0,0);
    gl.bindBuffer(gl.ARRAY_BUFFER,ly.n);gl.enableVertexAttribArray(GL.aN);gl.vertexAttribPointer(GL.aN,3,gl.FLOAT,false,0,0);
-   gl.uniform3fv(u.uC,col);gl.uniform1f(u.uA,a);gl.uniform1f(u.uRim,rim);
+   if(ly.c){gl.bindBuffer(gl.ARRAY_BUFFER,ly.c);gl.enableVertexAttribArray(GL.aC);gl.vertexAttribPointer(GL.aC,3,gl.FLOAT,false,0,0)}else{gl.disableVertexAttribArray(GL.aC);gl.vertexAttrib3f(GL.aC,1,1,1)}
+   gl.uniform3fv(u.uC,col);gl.uniform1f(u.uA,a);gl.uniform1f(u.uRim,rim);gl.uniform1f(u.uSpec,spec);
    if(a>.97&&!additive){gl.disable(gl.BLEND);gl.depthMask(true)}else{gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,additive?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(!!write)}
    gl.drawArrays(gl.TRIANGLES,0,ly.count)};
   const p2=colorOf('--p2'),p3=colorOf('--p3');
-  draw('B',[.82,.8,.9],cur3.B,.2,false,true);
-  draw('M',p2,cur3.M,MODES[bodyMode].M[1],false,cur3.M>.97);
+  draw('B',[1.18,1.1,.96],cur3.B,bodyMode==='skeleton'?.05:.15,false,true,.28);
+  draw('G',p2,.7,1,true,false);
+  draw('M',p2,cur3.M,MODES[bodyMode].M[1],false,cur3.M>.97,.15);
   draw('S',p3.map(c=>c*.9+.1),cur3.S,MODES[bodyMode].S[1],true,false);
   gl.depthMask(true);raf3=requestAnimationFrame(frame)};
  raf3=requestAnimationFrame(frame)}
@@ -1233,7 +1351,7 @@ function renderBody(){const s=bodyStats(),sc=bodyScans(),cats=bfCats(),lo=cats[0
   <div style="position:absolute;top:16px;left:18px;z-index:2;pointer-events:none"><div class="label">Body fat</div><div class="big" style="font-size:40px">${s.bf.toFixed(1)}<small>%</small></div><span class="pill">${bfCat(s.bf)}</span></div>
   <div style="position:absolute;top:16px;right:18px;z-index:2;text-align:right;pointer-events:none"><div class="label">FFMI</div><div style="font-family:var(--head);font-size:24px;font-weight:800;margin-top:6px">${s.ffmi.toFixed(1)}</div><small class="muted" style="font-size:11px">${ffmiCat(s.ffmi)}</small></div>
   <canvas id="body3d" style="width:100%;height:470px;margin-top:40px;display:block;touch-action:none;cursor:grab"></canvas>
-  <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--faint);pointer-events:none">Drag to rotate</div>
+  <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--faint);pointer-events:none">Drag to rotate · pinch or double-tap to zoom</div>
  </div>
  <div class="seg" style="margin-bottom:14px">${[['holo','Hologram'],['muscle','Muscle'],['skeleton','Skeleton']].map(([k,n])=>`<button class="${bodyMode===k?'on':''}" onclick="bodyMode='${k}';$$('#v-body .seg button').forEach((b,i)=>b.classList.toggle('on',i===${['holo','muscle','skeleton'].indexOf(k)}))">${n}</button>`).join('')}</div>
  <div class="row" style="margin-bottom:14px"><button class="btn" onclick="bodyPhoto()">${I.cam} Scan photo</button><button class="btn ghost" onclick="navySheet()">📏 Measure</button></div>

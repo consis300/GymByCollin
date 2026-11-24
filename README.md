@@ -9,10 +9,10 @@ Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** o
 - **Train**: a workout split for **mass** or an **aesthetic** physique, built around your experience and days per week
 - **Fuel**: a sample day of eating plus the best foods for bulking or cutting
 - **Recover**: water, sleep and steps targets with daily trackers
-- **📸 Food scanner**: snap a photo and AI identifies each food, estimates its weight, and shows the calories and protein. Adjust the grams with a slider
+- **📸 Food scanner**: snap a photo of any meal, snack, drink or package and AI identifies each item, estimates its weight, and shows calories and protein. It knows restaurant chains and brands and accounts for hidden oils and sauces. Add details before scanning, tap **Fix it** to correct the AI, **+ Add item** for anything it missed, or **Describe it** to log food with no photo at all
 - **▥ Barcode scanner**: checks [Open Food Facts](https://world.openfoodfacts.org) (about 3M products) and the USDA branded foods database (about 400k US products), trying both UPC and EAN formats. If a product isn't in either, snap its Nutrition Facts label and the AI reads it, or type it in. NextRepDaily then remembers that barcode forever, even offline
 - **🏋️ Workout tracker**: log sets and reps with a rest timer. It shows what you lifted last time and automatically detects **personal records** (heaviest weight, rep PRs, estimated 1RM) with progress charts
-- **🧍 Body Scan**: upload a photo (AI estimate) or use tape measurements (U.S. Navy method) to get body fat %, lean mass, skeletal muscle mass and FFMI, shown as a rotatable 3D hologram with Hologram / Muscle / Skeleton views that reshapes with your results
+- **🧍 Body Scan**: upload a photo (AI estimate) or use tape measurements (U.S. Navy method) to get body fat %, lean mass, skeletal muscle and FFMI, shown in 3D with Hologram / Muscle / Skeleton views. The skeleton is anatomically detailed (skull with teeth, 24 vertebrae, 12 rib pairs, pelvis, hand and foot bones). Drag to rotate, pinch to zoom
 - **🎨 Themes**: pick any accent color and background in Settings
 
 ## Setting up the food scanner (free)
