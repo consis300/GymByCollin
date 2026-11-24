@@ -694,11 +694,11 @@ function editSheet(title,sub,img){return `<h2>${title}</h2><p class="sub">${sub}
 /* ---------- AI photo scanner ---------- */
 const MODELS=['gemini-flash-latest','gemini-3.8-flash','gemini-2.5-flash'];
 function aiKey(){return (store.get('gbc_ai')||{}).key||''}
-function startPhotoScan(){bodyTarget=0;if(!aiKey())return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The photo scanner uses Google's Gemini AI to recognise your food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
+function startPhotoScan(){bodyTarget=0;labelCode=null;if(!aiKey())return openSheet(`<h2>📸 Food scanner</h2><p class="sub">The photo scanner uses Google's Gemini AI to recognise your food and estimate its weight. It needs a <b>free</b> API key, which takes about a minute to get.</p>
  ${aiKeyForm()}<button class="btn ghost" style="margin-top:10px" onclick="searchSheet()">Search foods manually instead</button>`);
  openSheet(`<h2>📸 Scan your food</h2><p class="sub">Take a photo from slightly above with the whole plate in view. Putting a fork or your hand in the shot helps the AI judge size.</p>
   <button class="btn" onclick="$('#camIn').click()">${I.cam} Take photo</button><button class="btn ghost" style="margin-top:10px" onclick="$('#picIn').click()">Choose from library</button>`)}
-const onPic=e=>{const f=e.target.files[0];e.target.value='';const b=bodyTarget;bodyTarget=0;if(f)(b?analyzeBody:analyzePhoto)(f)};
+const onPic=e=>{const f=e.target.files[0];e.target.value='';const b=bodyTarget,lc=labelCode;bodyTarget=0;labelCode=null;if(!f)return;if(lc!==null)analyzeLabel(f,lc);else (b?analyzeBody:analyzePhoto)(f)};
 $('#camIn').onchange=onPic;$('#picIn').onchange=onPic;
 function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const s=Math.min(1,1024/Math.max(img.width,img.height));const c=document.createElement('canvas');
  c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',.85))};img.onerror=rej;img.src=URL.createObjectURL(file)})}
@@ -733,7 +733,7 @@ function saveKey(){const k=$('#keyIn').value.trim();const a=store.get('gbc_ai')|
 /* ---------- barcode scanner ---------- */
 let qr=null;
 function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Could not load scanner'));document.head.appendChild(s)})}
-async function startBarcode(){openSheet(`<h2>▥ Scan barcode</h2><p class="sub">Point your camera at the barcode on the package.</p><div id="reader"></div>
+async function startBarcode(){openSheet(`<h2>▥ Scan barcode</h2><p class="sub">Point your camera at the barcode. NextRepDaily checks Open Food Facts and the USDA database, and if a product is missing you can add it from its label.</p><div id="reader"></div>
  <div class="row"><input class="inp" id="codeIn" type="number" inputmode="numeric" placeholder="…or type the barcode number"><button class="btn sm" style="flex:none" onclick="lookupCode($('#codeIn').value)">Look up</button></div>
  <button class="btn ghost" style="margin-top:10px" onclick="closeSheet()">Cancel</button>`,stopScanner);
  try{await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
@@ -741,20 +741,77 @@ async function startBarcode(){openSheet(`<h2>▥ Scan barcode</h2><p class="sub"
   await qr.start({facingMode:'environment'},{fps:12,qrbox:(w,h)=>({width:Math.min(w*.85,320),height:Math.min(h*.45,150)}),aspectRatio:1.333},code=>{buzz(40);lookupCode(code)},()=>{})}
  catch(e){const r=$('#reader');if(r)r.innerHTML=`<div style="padding:30px 18px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5">📷 Camera unavailable${e&&e.message?': '+esc(e.message):''}.<br>Allow camera access for this site, or type the barcode number below.</div>`}}
 async function stopScanner(){if(qr){try{await qr.stop()}catch(e){}try{qr.clear()}catch(e){}qr=null}}
+/* ---------- barcode lookup: local → Open Food Facts → USDA → label scan ---------- */
+const BC_DB='gbc_barcodes';
+function codeVariants(c){const v=new Set([c]);const s=c.replace(/^0+/,'');
+ if(c.length===12)v.add('0'+c);if(c.length===13&&c[0]==='0')v.add(c.slice(1));if(c.length===8)v.add(c);if(s.length>=6){v.add(s);v.add(s.padStart(12,'0'));v.add(s.padStart(13,'0'));v.add(s.padStart(14,'0'))}
+ return [...v]}
+function localBarcode(c){const db=store.get(BC_DB)||{};for(const v of codeVariants(c))if(db[v])return db[v];return null}
+function rememberBarcode(c,item){const db=store.get(BC_DB)||{};db[c]={...item,saved:Date.now()};store.set(BC_DB,db)}
+async function tryOFF(c){for(const v of codeVariants(c).slice(0,4)){try{
+  const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${v}.json?fields=product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,image_front_small_url`);if(!r.ok)continue;const j=await r.json();
+  const p=j.product,n=p&&p.nutriments;if(!p||j.status===0||!n)continue;const k=n['energy-kcal_100g']??(n['energy_100g']!=null?n['energy_100g']/4.184:null);if(k==null)continue;
+  return {name:p.product_name||p.product_name_en||'Unnamed product',brand:p.brands?p.brands.split(',')[0]:'',servG:+p.serving_quantity||null,servTxt:p.serving_size||'',img:p.image_front_small_url||'',
+   k100:k,p100:n.proteins_100g||0,c100:n.carbohydrates_100g||0,f100:n.fat_100g||0,source:'Open Food Facts'}}catch(e){}}return null}
+async function tryUSDA(c){const key=(store.get('gbc_ai')||{}).usda||'DEMO_KEY';const strip=c.replace(/^0+/,'');
+ try{const r=await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}&query=${strip}&dataType=Branded&pageSize=10`);if(!r.ok)return null;const j=await r.json();
+  const f=(j.foods||[]).find(x=>x.gtinUpc&&x.gtinUpc.replace(/^0+/,'')===strip);if(!f)return null;
+  const get=(nums,names)=>{const n=(f.foodNutrients||[]).find(x=>nums.includes(String(x.nutrientNumber))||names.some(t=>(x.nutrientName||'').toLowerCase().startsWith(t)));return n?+n.value||0:0};
+  let k=get(['208'],['energy']);const kj=(f.foodNutrients||[]).find(x=>String(x.nutrientNumber)==='268');if(!k&&kj)k=kj.value/4.184;
+  const unit=(f.servingSizeUnit||'').toLowerCase();const servG=['g','grm','ml','mlt'].includes(unit)?+f.servingSize||null:null;
+  const title=s=>String(s||'').toLowerCase().replace(/\b\w/g,m=>m.toUpperCase());
+  return {name:title(f.description)||'Unnamed product',brand:title(f.brandName||f.brandOwner||''),servG,servTxt:f.householdServingFullText||(f.servingSize?f.servingSize+' '+(f.servingSizeUnit||''):''),img:'',
+   k100:k,p100:get(['203'],['protein']),c100:get(['205'],['carbohydrate']),f100:get(['204'],['total lipid']),source:'USDA'}}catch(e){return null}}
+function showProduct(code,it,fromCache){EDIT=[{name:it.name,sub:it.brand||'',grams:it.servG||100,base:it.servG||100,servG:it.servG||null,k100:it.k100,p100:it.p100,c100:it.c100,f100:it.f100,src:'barcode'}];
+ openSheet(editSheet('✅ Found it',`${it.servTxt?'Serving: '+esc(it.servTxt)+'. ':''}Set how much you're eating.<br><span class="faint" style="font-size:11px">Source: ${esc(fromCache?'saved on this phone':it.source)} · ${esc(code)}</span>`,it.img||''));renderEdit()}
 async function lookupCode(code){code=String(code||'').replace(/\D/g,'');if(code.length<6)return toast('Enter a valid barcode');await stopScanner();
- openSheet(`<h2>Looking up ${esc(code)}…</h2><div class="spin"></div>`);
- try{const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,serving_size,serving_quantity,image_front_small_url`);const j=await r.json();
-  const p=j.product,n=p&&p.nutriments;
-  if(!p||j.status===0||!n||n['energy-kcal_100g']==null&&n['energy_100g']==null)return openSheet(`<h2>Product not found</h2><p class="sub">Barcode ${esc(code)} isn't in the Open Food Facts database yet, or it's missing nutrition info. You can search for something similar instead.</p><button class="btn" onclick="startBarcode()">Scan another</button><button class="btn ghost" style="margin-top:10px" onclick="searchSheet()">Search foods</button>`);
-  const k100=n['energy-kcal_100g']??(n['energy_100g']/4.184);const serv=+p.serving_quantity||0;
-  EDIT=[{name:p.product_name||'Unnamed product',sub:p.brands?p.brands.split(',')[0]:'',grams:serv||100,base:serv||100,servG:serv||null,k100,p100:n.proteins_100g||0,c100:n.carbohydrates_100g||0,f100:n.fat_100g||0,src:'barcode'}];
-  openSheet(editSheet('✅ Found it',`${p.serving_size?'Serving size: '+esc(p.serving_size)+'. ':''}Set how much you're eating.`,p.image_front_small_url||''));renderEdit()}
- catch(e){openSheet(`<h2>Couldn't look that up</h2><p class="sub">Check your internet connection and try again.</p><button class="btn" onclick="startBarcode()">Try again</button>`)}}
+ const local=localBarcode(code);if(local)return showProduct(code,local,true);
+ openSheet(`<h2>Looking up ${esc(code)}…</h2><div class="spin"></div><p class="sub" style="text-align:center" id="lkStep">Checking Open Food Facts</p>`);
+ let it=await tryOFF(code);
+ if(!it){const s=$('#lkStep');if(s)s.textContent='Checking USDA branded foods';it=await tryUSDA(code)}
+ if(it){rememberBarcode(code,it);return showProduct(code,it)}
+ if(!navigator.onLine)return openSheet(`<h2>You're offline</h2><p class="sub">Connect to the internet to look up new barcodes. Products you've scanned before still work offline.</p><button class="btn" onclick="startBarcode()">Try again</button>`);
+ notFoundSheet(code)}
+let labelCode=null;
+function notFoundSheet(code){openSheet(`<h2>New product!</h2><p class="sub">Barcode <b>${esc(code)}</b> isn't in any database yet. Add it once and NextRepDaily will remember it, so next time it scans instantly.</p>
+ <button class="btn" onclick="labelScan('${code}')">${I.cam} Snap the Nutrition Facts label</button>
+ <button class="btn ghost" style="margin-top:12px" onclick="manualProduct('${code}')">Type it in from the label</button>
+ <button class="btn ghost" style="margin-top:12px" onclick="startBarcode()">Scan a different barcode</button>`)}
+function labelScan(code){if(!aiKey())return openSheet(`<h2>📸 Label reader</h2><p class="sub">Reading labels uses the same free Gemini key as the food scanner.</p>${aiKeyForm()}<button class="btn ghost" style="margin-top:12px" onclick="manualProduct('${code||''}')">Type it in instead</button>`);
+ openSheet(`<h2>📸 Snap the label</h2><p class="sub">Get the whole <b>Nutrition Facts</b> panel in frame, flat and in focus. Include the product name if you can.</p>
+ <button class="btn" onclick="labelCode='${code||''}';$('#camIn').click()">${I.cam} Take photo</button><button class="btn ghost" style="margin-top:12px" onclick="labelCode='${code||''}';$('#picIn').click()">Choose from library</button>`)}
+const LABEL_SCHEMA={type:'OBJECT',properties:{is_label:{type:'BOOLEAN'},product_name:{type:'STRING'},serving_text:{type:'STRING'},serving_grams:{type:'NUMBER'},calories:{type:'NUMBER'},protein_g:{type:'NUMBER'},carbs_g:{type:'NUMBER'},fat_g:{type:'NUMBER'}},required:['is_label','serving_grams','calories','protein_g','carbs_g','fat_g']};
+async function analyzeLabel(file,code){let img;try{img=await shrink(file)}catch(e){return toast('Could not read that photo')}
+ openSheet(`<h2>Reading label…</h2><img class="preview" src="${img}"><div class="spin"></div>`);
+ const prompt=`Read the Nutrition Facts / nutrition information panel in this photo exactly as printed. Return values PER SERVING as printed (not per container). serving_grams = the serving size in grams (if only ml is given, use the ml number; if only a household measure is given, estimate grams). If the label shows per-100g only, use serving_grams 100. product_name = the product name if visible, else a short description. If no nutrition label is visible, set is_label false.`;
+ try{const key=aiKey(),saved=(store.get('gbc_ai')||{}).model;let out,err;
+  for(const m of [saved,...MODELS].filter((v,i,a)=>v&&a.indexOf(v)===i)){const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
+    body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:img.split(',')[1]}}]}],generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema:LABEL_SCHEMA}})});
+   const j=await r.json();if(!r.ok){err=j.error?.message||'HTTP '+r.status;if(r.status===404)continue;break}out=JSON.parse(j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'{}');break}
+  if(!out)throw new Error(err||'No response');
+  if(!out.is_label||!(out.serving_grams>0))return openSheet(`<h2>Couldn't read a label</h2><p class="sub">Make sure the Nutrition Facts panel is flat, well lit and in focus.</p><button class="btn" onclick="labelScan('${code||''}')">Try again</button><button class="btn ghost" style="margin-top:12px" onclick="manualProduct('${code||''}')">Type it in</button>`);
+  const g=out.serving_grams,it={name:out.product_name||'Packaged food',brand:'',servG:g,servTxt:out.serving_text||g+' g',k100:out.calories/g*100,p100:out.protein_g/g*100,c100:out.carbs_g/g*100,f100:out.fat_g/g*100,source:'Nutrition label'};
+  productConfirm(code,it,img)}
+ catch(e){openSheet(`<h2>Label scan failed</h2><p class="sub">${esc(e.message)}</p><button class="btn" onclick="labelScan('${code||''}')">Try again</button><button class="btn ghost" style="margin-top:12px" onclick="manualProduct('${code||''}')">Type it in</button>`)}}
+let PEND=null;
+function productConfirm(code,it,img){PEND={code,it};const sv=it.servG;
+ openSheet(`<h2>Check the label</h2><p class="sub">Fix anything the AI misread, then save.${code?' This barcode will be remembered.':''}</p>${img?`<img class="preview" src="${img}" style="max-height:180px">`:''}
+ ${productForm({name:it.name,serv:Math.round(sv),kcal:Math.round(it.k100*sv/100),p:+(it.p100*sv/100).toFixed(1),c:+(it.c100*sv/100).toFixed(1),f:+(it.f100*sv/100).toFixed(1)})}
+ <button class="btn" onclick="saveProduct()">Save & log it</button>`)}
+function manualProduct(code){PEND={code,it:{source:'Typed in'}};openSheet(`<h2>Add product</h2><p class="sub">Copy the numbers from the Nutrition Facts label (per serving).${code?' This barcode will be remembered.':''}</p>${productForm({})}<button class="btn" onclick="saveProduct()">Save & log it</button>`)}
+function productForm(v){const f=(id,l,val,u,mode='decimal')=>`<div class="field" style="margin-bottom:14px"><label>${l}</label><div class="inp-wrap"><input class="inp" id="${id}" ${id==='pfN'?'':'type="number" inputmode="'+mode+'"'} value="${val??''}">${u?`<span>${u}</span>`:''}</div></div>`;
+ return f('pfN','Product name',esc(v.name||''),'','text')+`<div class="row">${f('pfS','Serving size',v.serv,'g')}${f('pfK','Calories',v.kcal,'kcal','numeric')}</div><div class="row">${f('pfP','Protein',v.p,'g')}${f('pfC','Carbs',v.c,'g')}${f('pfF','Fat',v.f,'g')}</div>`}
+function saveProduct(){const g=+$('#pfS').value,k=+$('#pfK').value;if(!(g>0)||!(k>=0)||$('#pfK').value==='')return toast('Enter serving size and calories');
+ const it={name:$('#pfN').value.trim()||'Packaged food',brand:'',servG:g,servTxt:g+' g serving',k100:k/g*100,p100:(+$('#pfP').value||0)/g*100,c100:(+$('#pfC').value||0)/g*100,f100:(+$('#pfF').value||0)/g*100,source:PEND&&PEND.it.source||'Typed in'};
+ if(PEND&&PEND.code)rememberBarcode(PEND.code,it);const code=PEND&&PEND.code;PEND=null;
+ EDIT=[{name:it.name,grams:g,base:g,servG:g,k100:it.k100,p100:it.p100,c100:it.c100,f100:it.f100,src:'barcode'}];
+ openSheet(editSheet('✅ Saved',`${code?'Barcode remembered. ':''}How much are you eating?`));renderEdit()}
 
 /* ---------- manual search ---------- */
 function searchSheet(){openSheet(`<h2>Add food</h2><p class="sub">Search ${DB.length} common foods, or add calories manually.</p>
  <input class="inp" id="dbq" placeholder="Search e.g. chicken, rice, banana" autocomplete="off" style="margin-bottom:12px">
  <div class="card" style="padding:4px 14px" id="dbList"></div>
+ <div class="row" style="margin:4px 0 6px"><button class="btn ghost sm" onclick="labelScan('')">📷 Read a label</button><button class="btn ghost sm" onclick="startBarcode()">▥ Barcode</button></div>
  <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Quick add</h2></div>
  <div class="row"><input class="inp" id="qaK" type="number" inputmode="numeric" placeholder="kcal"><input class="inp" id="qaP" type="number" inputmode="numeric" placeholder="protein g"></div>
  <button class="btn ghost" style="margin-top:10px" onclick="quickAdd()">Add calories</button>`);
@@ -1025,12 +1082,12 @@ function openSettings(){const T=store.get('gbc_theme')||{accent:'#a855f7',bg:'Bl
  <div class="seg" style="margin-bottom:24px">${[60,90,120,180].map(s=>`<button class="${rest===s?'on':''}" onclick="store.set('gbc_rest',${s});openSettings()">${s<120?s+'s':s/60+' min'}</button>`).join('')}</div>
  <div class="card" style="padding:4px 16px">
   <div class="li tap" onclick="editProfile()"><div class="ic">${I.target}</div><div class="tx"><b>Edit profile & goal</b><small>Weight, height, goal, training days</small></div><div class="rt">${I.right}</div></div>
-  <div class="li tap" onclick="aiSheet()"><div class="ic">${I.cam}</div><div class="tx"><b>Food scanner AI key</b><small>${aiKey()?'Connected ✓':'Not set up · free'}</small></div><div class="rt">${I.right}</div></div>
+  <div class="li tap" onclick="aiSheet()"><div class="ic">${I.cam}</div><div class="tx"><b>Scanner keys</b><small>Gemini AI ${aiKey()?'✓':'· not set'} · USDA ${(store.get('gbc_ai')||{}).usda?'✓':'· demo'}</small></div><div class="rt">${I.right}</div></div>
   <div class="li tap" onclick="exportData()"><div class="ic">${I.chart}</div><div class="tx"><b>Back up my data</b><small>Download workouts, PRs & logs</small></div><div class="rt">${I.right}</div></div>
   <div class="li tap" onclick="$('#importIn').click()"><div class="ic">${I.plus}</div><div class="tx"><b>Restore backup</b><small>Load a backup file</small></div><div class="rt">${I.right}</div></div>
  </div>
  <button class="btn ghost" onclick="closeSheet()">Done</button>`)}
-function aiSheet(){openSheet(`<h2>Food scanner AI</h2><p class="sub">Photo scanning uses Google Gemini. Your key stays on this phone and is only sent to Google.</p>${aiKeyForm()}${aiKey()?`<button class="btn danger" style="margin-top:10px" onclick="$('#keyIn').value='';saveKey()">Remove key</button>`:''}<button class="btn ghost" style="margin-top:10px" onclick="openSettings()">Back</button>`)}
+function aiSheet(){openSheet(`<h2>Food scanner AI</h2><p class="sub">Photo scanning uses Google Gemini. Your key stays on this phone and is only sent to Google.</p>${aiKeyForm()}<div class="sec-title"><h2 style="font-size:15px">USDA key <span class="faint" style="font-weight:500">(optional)</span></h2></div><p class="sub" style="margin-bottom:12px">Barcode lookups use a shared demo key that's limited to about 30 lookups an hour. For unlimited lookups, get a free key at <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noopener" style="color:var(--p3)">fdc.nal.usda.gov/api-key-signup</a>.</p><div class="row"><input class="inp" id="usdaIn" placeholder="USDA API key" value="${esc((store.get('gbc_ai')||{}).usda||'')}" autocapitalize="off" spellcheck="false"><button class="btn sm" style="flex:none" onclick="const a=store.get('gbc_ai')||{};a.usda=$('#usdaIn').value.trim();store.set('gbc_ai',a);toast('✓ USDA key saved')">Save</button></div>${aiKey()?`<button class="btn danger" style="margin-top:10px" onclick="$('#keyIn').value='';saveKey()">Remove key</button>`:''}<button class="btn ghost" style="margin-top:10px" onclick="openSettings()">Back</button>`)}
 function setTheme(ch,live){const T={...(store.get('gbc_theme')||{accent:'#a855f7',bg:'Black'}),...ch};store.set('gbc_theme',T);applyTheme();if(!live){openSettings();rerender()}}
 function exportData(){const d={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith('gbc_')&&k!=='gbc_ai')d[k]=JSON.parse(localStorage.getItem(k))}}catch(e){Object.assign(d,mem)}
  const blob=new Blob([JSON.stringify(d,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`nextrepdaily-backup-${dateKey()}.json`;document.body.appendChild(a);a.click();a.remove();toast('✓ Backup downloaded')}

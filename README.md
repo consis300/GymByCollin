@@ -10,7 +10,7 @@ Enter your height, weight, age, lifting experience and goal (**bulk**, **cut** o
 - **Fuel**: a sample day of eating plus the best foods for bulking or cutting
 - **Recover**: water, sleep and steps targets with daily trackers
 - **📸 Food scanner**: snap a photo and AI identifies each food, estimates its weight, and shows the calories and protein. Adjust the grams with a slider
-- **▥ Barcode scanner**: scan any packaged food and pull its nutrition from [Open Food Facts](https://world.openfoodfacts.org)
+- **▥ Barcode scanner**: checks [Open Food Facts](https://world.openfoodfacts.org) (about 3M products) and the USDA branded foods database (about 400k US products), trying both UPC and EAN formats. If a product isn't in either, snap its Nutrition Facts label and the AI reads it, or type it in. NextRepDaily then remembers that barcode forever, even offline
 - **🏋️ Workout tracker**: log sets and reps with a rest timer. It shows what you lifted last time and automatically detects **personal records** (heaviest weight, rep PRs, estimated 1RM) with progress charts
 - **🧍 Body Scan**: upload a photo (AI estimate) or use tape measurements (U.S. Navy method) to get body fat %, lean mass, skeletal muscle mass and FFMI, shown as a rotatable 3D hologram with Hologram / Muscle / Skeleton views that reshapes with your results
 - **🎨 Themes**: pick any accent color and background in Settings
